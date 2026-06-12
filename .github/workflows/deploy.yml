@@ -25,13 +25,19 @@ jobs:
         working-directory: ./backend
         run: mvn clean package -DskipTests
 
-      - name: Build and push image to ACR
+      - name: Log in to ACR
+        run: az acr login --name shurclickregistry
+
+      - name: Build Docker image
+        working-directory: ./backend
         run: |
-          az acr build \
-            --registry shurclickregistry \
-            --image shurclick-backend:${{ github.sha }} \
-            --image shurclick-backend:latest \
-            ./backend
+          docker build -t shurclickregistry.azurecr.io/shurclick-backend:${{ github.sha }} \
+                        -t shurclickregistry.azurecr.io/shurclick-backend:latest .
+
+      - name: Push image to ACR
+        run: |
+          docker push shurclickregistry.azurecr.io/shurclick-backend:${{ github.sha }}
+          docker push shurclickregistry.azurecr.io/shurclick-backend:latest
 
       - name: Deploy new image to Container App
         run: |
