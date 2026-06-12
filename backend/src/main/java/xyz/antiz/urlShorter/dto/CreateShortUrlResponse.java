@@ -1,0 +1,89 @@
+package xyz.antiz.urlShorter.dto;
+
+public class CreateShortUrlResponse {
+
+    private Long id;
+    private String shortCode;
+    private String shortUrl;
+    private String longUrl;
+    private Long clickCount;
+    private String createdAt;
+    private String lastAccessedAt;
+
+    public CreateShortUrlResponse() {
+    }
+
+    public CreateShortUrlResponse(
+            Long id,
+            String shortCode,
+            String shortUrl,
+            String longUrl,
+            Long clickCount,
+            String createdAt,
+            String lastAccessedAt
+    ) {
+        this.id = id;
+        this.shortCode = shortCode;
+        this.shortUrl = shortUrl;
+        this.longUrl = longUrl;
+        this.clickCount = clickCount;
+        this.createdAt = createdAt;
+        this.lastAccessedAt = lastAccessedAt;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getShortCode() {
+        return shortCode;
+    }
+
+    public void setShortCode(String shortCode) {
+        this.shortCode = shortCode;
+    }
+
+    public String getShortUrl() {
+        return shortUrl;
+    }
+
+    public void setShortUrl(String shortUrl) {
+        this.shortUrl = shortUrl;
+    }
+
+    public String getLongUrl() {
+        return longUrl;
+    }
+
+    public void setLongUrl(String longUrl) {
+        this.longUrl = longUrl;
+    }
+
+    public Long getClickCount() {
+        return clickCount;
+    }
+
+    public void setClickCount(Long clickCount) {
+        this.clickCount = clickCount;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getLastAccessedAt() {
+        return lastAccessedAt;
+    }
+
+    public void setLastAccessedAt(String lastAccessedAt) {
+        this.lastAccessedAt = lastAccessedAt;
+    }
+}

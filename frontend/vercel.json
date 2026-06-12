@@ -1,0 +1,29 @@
+{
+  "framework": "vite",
+  "redirects": [
+    {
+      "source": "/:code",
+      "destination": "https://api.shur.click/:code",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://api.shur.click/api/:path*"
+    },
+    {
+      "source": "/:code((?!api$|auth$|user$|login$|signup$|dashboard$|forgot-password$|reset-password$|track$|favicon.ico$)[A-Za-z0-9_-]{3,20})",
+      "destination": "https://api.shur.click/:code"
+    },
+    {
+      "source": "/r/:code*",
+      "destination": "https://api.shur.click/:code*"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}
+

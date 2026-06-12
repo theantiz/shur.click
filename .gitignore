@@ -1,3 +1,51 @@
+# OS
+.DS_Store
+
+./node_modules/
+./dist/
+./.idea/
+./.vscode/
+
+# Logs
+*.log
+
+# Maven
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.mvn/
+backend/.idea/
+backend/.vscode/
+backend/.github/
+
+
+# Node / Vite / React
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+frontend/coverage/
+frontend/.env
+frontend/.env.*
+
+# IDEs
+.vscode/
+.idea/
+
+# Build output (generic)
+**/target/
+**/dist/
+
+# Docker
+*.env
+
+
+# Secrets / env files
+backend/.env
+
+
+
 # Compiled class file
 *.class
 
