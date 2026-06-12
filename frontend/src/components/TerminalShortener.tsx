@@ -163,7 +163,6 @@ export default function TerminalShortener() {
   const [showResult, setShowResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [showQR, setShowQR] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [guestLimitReached, setGuestLimitReached] = useState(false);
@@ -264,7 +263,6 @@ export default function TerminalShortener() {
       const data = (await res.json()) as CreateResponse;
       setShortUrl(data.shortUrl);
       setShowResult(true);
-      setShowQR(false);
       setUrlInput("");
       setCustomCode("");
 
@@ -303,7 +301,6 @@ export default function TerminalShortener() {
     setUrlInput(item.longUrl);
     setShortUrl(item.shortUrl);
     setShowResult(true);
-    setShowQR(false);
   };
 
   const clearHistory = () => {
