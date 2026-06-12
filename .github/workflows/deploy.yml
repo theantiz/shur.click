@@ -1,0 +1,40 @@
+name: shur.click-production
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build jar with Maven
+        working-directory: ./backend
+        run: mvn clean package -DskipTests
+
+      - name: Build and push image to ACR
+        run: |
+          az acr build \
+            --registry shurclickregistry \
+            --image shurclick-backend:${{ github.sha }} \
+            --image shurclick-backend:latest \
+            ./backend
+
+      - name: Deploy new image to Container App
+        run: |
+          az containerapp update \
+            --name shurclick-backend \
+            --resource-group shurclick-rg \
+            --image shurclickregistry.azurecr.io/shurclick-backend:${{ github.sha }}
