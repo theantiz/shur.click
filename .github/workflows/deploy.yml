@@ -1,47 +1,47 @@
-name: shur.click-production
+name: shur.click CI/CD
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'backend/**'
-  workflow_dispatch:
+    branches: [main]
+
+env:
+  ACR_LOGIN_SERVER: shurclickacr.azurecr.io
+  IMAGE_NAME: shurclickacr.azurecr.io/shur-click
 
 jobs:
   build-and-deploy:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
 
-      - name: Build jar with Maven
-        working-directory: ./backend
-        run: mvn clean package -DskipTests
+      - name: Build JAR
+        run: mvn package -DskipTests -q
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to ACR
-        run: az acr login --name shurclickregistry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Build Docker image
-        working-directory: ./backend
-        run: |
-          docker build -t shurclickregistry.azurecr.io/shurclick-backend:${{ github.sha }} \
-                        -t shurclickregistry.azurecr.io/shurclick-backend:latest .
-
-      - name: Push image to ACR
-        run: |
-          docker push shurclickregistry.azurecr.io/shurclick-backend:${{ github.sha }}
-          docker push shurclickregistry.azurecr.io/shurclick-backend:latest
-
-      - name: Deploy new image to Container App
-        run: |
-          az containerapp update \
-            --name shurclick-backend \
-            --resource-group shurclick-rg \
-            --image shurclickregistry.azurecr.io/shurclick-backend:${{ github.sha }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
