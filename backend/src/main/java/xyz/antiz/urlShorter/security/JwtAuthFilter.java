@@ -35,12 +35,34 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
+        String path = request.getRequestURI();
+
+        // Never require JWT for public endpoints / static assets.
+        if (path.startsWith("/api/auth/")
+                || path.equals("/api/auth")
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.equals("/favicon.ico")
+                || path.equals("/favicon-16x16.png")
+                || path.equals("/favicon-32x32.png")
+                || path.equals("/apple-touch-icon.png")
+                || path.equals("/android-chrome-192x192.png")
+                || path.equals("/android-chrome-512x512.png")
+                || path.equals("/robots.txt")
+                || path.equals("/sitemap.xml")
+                || request.getMethod().equals("OPTIONS")) {
+
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
+
 
         String token = authHeader.substring(7);
 

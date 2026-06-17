@@ -49,16 +49,38 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.FORWARD).permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+
+                        // Health
+                        .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+
+                        // Auth (must be public so frontend OAuth + OTP can work)
+                        .requestMatchers("/api/auth/**").permitAll()
+
+                        // Public app endpoints
                         .requestMatchers(HttpMethod.POST, "/api/urls").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/feedback").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+
+                        // Static files (frontend assets)
+                        .requestMatchers("/favicon.ico").permitAll()
+                        .requestMatchers("/favicon-16x16.png").permitAll()
+                        .requestMatchers("/favicon-32x32.png").permitAll()
+                        .requestMatchers("/apple-touch-icon.png").permitAll()
+                        .requestMatchers("/android-chrome-192x192.png").permitAll()
+                        .requestMatchers("/android-chrome-512x512.png").permitAll()
+                        .requestMatchers("/robots.txt").permitAll()
+                        .requestMatchers("/sitemap.xml").permitAll()
+
                         // Allow anonymous GET/HEAD to top-level single-segment paths (short codes)
                         .requestMatchers(HttpMethod.GET, "/*").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/*").permitAll()
+
+                        // Swagger/OpenAPI (springdoc)
+                        .requestMatchers("/swagger-ui.html").permitAll()
+                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/v3/api-docs").permitAll()
+                        .requestMatchers("/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated())
+
                 // Apply rate limiting early (before JWT auth)
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
