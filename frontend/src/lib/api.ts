@@ -1,9 +1,11 @@
-// Always use relative calls in dev/local so Vite proxy + backend CORS work correctly.
-// Only allow absolute API URLs when explicitly enabled.
+const DEFAULT_PRODUCTION_API_BASE_URL = "https://api.shur.click";
+
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.toString().replace(/\/+$/, "") ?? "";
+
+// Keep dev/local calls relative for Vite proxy, but do not rely on production /api rewrites.
 const apiBaseUrl =
-  import.meta.env?.VITE_FORCE_ABSOLUTE_API_URL === "true"
-    ? (import.meta as any).env?.VITE_API_BASE_URL?.toString().replace(/\/+$/, "")
-    : "";
+  configuredApiBaseUrl ||
+  (import.meta.env.PROD ? DEFAULT_PRODUCTION_API_BASE_URL : "");
 
 export function apiUrl(path: string): string {
   // If caller passes an absolute URL, respect it.
@@ -11,8 +13,7 @@ export function apiUrl(path: string): string {
 
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
-  if (!apiBaseUrl) return normalizedPath; // -> /api/... (goes through Vite proxy)
+  if (!apiBaseUrl) return normalizedPath; // -> /api/... in dev/local
   return `${apiBaseUrl}${normalizedPath}`;
 }
-
 

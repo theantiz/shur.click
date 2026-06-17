@@ -1,7 +1,5 @@
 package xyz.antiz.urlShorter.rate;
 
-
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,8 +41,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     @Value("${app.ratelimit.max-requests:60}")
     private long maxRequests;
 
-    @Value("${app.ratelimit.exempt-prefixes:/api/auth/open,/health,/api/health}")
+    @Value("${app.ratelimit.exempt-prefixes:/api/auth/open,/api/auth,/health,/api/health,/favicon.,/robots.txt,/sitemap.xml}")
     private String exemptPrefixes;
+
 
     // Comma-separated list of exact paths (relative to context) that will be limited.
     // If empty, we limit all paths.
@@ -161,4 +160,5 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
     }
 }
+
 

@@ -3,6 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "../components/AuthShell";
 import { apiUrl } from "../lib/api";
 import { getApiErrorMessage } from "../lib/apiError";
+import {
+  initializeGoogleIdentity,
+  loadGoogleIdentityScript,
+  type GoogleCredentialResponse,
+} from "../lib/googleIdentity";
 
 type LoginFormData = {
   email: string;
@@ -11,27 +16,8 @@ type LoginFormData = {
 
 const DEFAULT_GOOGLE_CLIENT_ID = "249537386676-1b3dkci1si4h0p79lt3v1470jug2a2j3.apps.googleusercontent.com";
 
-type GoogleCredentialResponse = {
-  credential?: string;
-};
-
-type GoogleAccountsId = {
-  initialize: (config: {
-    client_id: string;
-    callback: (response: GoogleCredentialResponse) => void;
-  }) => void;
-  renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
-};
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: GoogleAccountsId;
-      };
-    };
-  }
-}
+const getErrorMessage = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -66,8 +52,8 @@ export default function Login() {
       localStorage.setItem("userEmail", data.email);
       localStorage.setItem("userName", data.fullName || "");
       navigate("/user/dashboard");
-    } catch (err: any) {
-      setError(err?.message || "Login failed");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Login failed"));
     } finally {
       setIsLoading(false);
     }
@@ -106,22 +92,21 @@ export default function Login() {
         localStorage.setItem("userEmail", data.email);
         localStorage.setItem("userName", data.fullName || "");
         navigate("/user/dashboard");
-      } catch (err: any) {
-        setError(err?.message || "Google login failed");
+      } catch (err: unknown) {
+        setError(getErrorMessage(err, "Google login failed"));
       } finally {
         setIsGoogleLoading(false);
       }
     };
+
+    let isMounted = true;
 
     const renderGoogleButton = () => {
       const container = googleButtonRef.current;
       if (!container || !window.google?.accounts?.id) return;
       container.innerHTML = "";
       const buttonWidth = Math.min(360, Math.max(240, Math.floor(container.clientWidth || 320)));
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleGoogleCredential,
-      });
+      initializeGoogleIdentity(googleClientId, handleGoogleCredential);
       window.google.accounts.id.renderButton(container, {
         type: "standard",
         shape: "pill",
@@ -136,26 +121,22 @@ export default function Login() {
 
     if (window.google?.accounts?.id) {
       renderGoogleButton();
-      return () => window.removeEventListener("resize", renderGoogleButton);
+    } else {
+      setIsGoogleScriptLoading(true);
+      loadGoogleIdentityScript()
+        .then(() => {
+          if (isMounted) renderGoogleButton();
+        })
+        .catch(() => {
+          if (!isMounted) return;
+          setIsGoogleScriptLoading(false);
+          setError("Failed to load Google login. Use email and password instead.");
+        });
     }
 
-    setIsGoogleScriptLoading(true);
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = renderGoogleButton;
-    script.onerror = () => {
-      setIsGoogleScriptLoading(false);
-      setError("Failed to load Google login. Use email and password instead.");
-    };
-    document.body.appendChild(script);
-
     return () => {
+      isMounted = false;
       window.removeEventListener("resize", renderGoogleButton);
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
       setIsGoogleScriptLoading(false);
     };
   }, [googleClientId, googleLoadAttempt, navigate]);
