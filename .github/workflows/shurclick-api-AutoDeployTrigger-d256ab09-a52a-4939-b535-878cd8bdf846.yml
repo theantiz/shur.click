@@ -31,7 +31,7 @@ jobs:
       - name: Build and Deploy Container App
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: backend
+          appSourcePath: .
           dockerfilePath: backend/Dockerfile
           registryUrl: shurclickacr.azurecr.io
           registryUsername: ${{ secrets.SHURCLICKAPI_REGISTRY_USERNAME }}
