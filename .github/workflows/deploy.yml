@@ -4,10 +4,6 @@ on:
   push:
     branches: [main]
 
-env:
-  ACR_LOGIN_SERVER: shurclickacr.azurecr.io
-  IMAGE_NAME: shurclickacr.azurecr.io/shur-click
-
 jobs:
   build-and-deploy:
     runs-on: self-hosted
@@ -23,17 +19,10 @@ jobs:
           distribution: "temurin"
           cache: maven
 
-      - name: Build JAR
-        run: mvn package -DskipTests -q
+      - name: Build and push to ACR via Jib
         working-directory: backend
-
-      - name: Log in to ACR via crane
-        run: crane auth login shurclickacr.azurecr.io -u "${{ secrets.ACR_USERNAME }}" -p "${{ secrets.ACR_PASSWORD }}"
-
-      - name: Build image
-        run: docker build --platform linux/amd64 -t ${{ env.IMAGE_NAME }}:latest -t ${{ env.IMAGE_NAME }}:${{ github.sha }} ./backend
-
-      - name: Push image
         run: |
-          docker push ${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          mvn jib:build \
+            -Djib.to.auth.username=${{ secrets.ACR_USERNAME }} \
+            -Djib.to.auth.password=${{ secrets.ACR_PASSWORD }} \
+            -Djib.to.tags=latest,${{ github.sha }}
