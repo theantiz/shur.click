@@ -8,6 +8,7 @@ import {
   loadGoogleIdentityScript,
   type GoogleCredentialResponse,
 } from "../lib/googleIdentity";
+import { claimGuestLinks } from "../lib/guestLinks";
 
 type LoginFormData = {
   email: string;
@@ -51,6 +52,7 @@ export default function Login() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("userEmail", data.email);
       localStorage.setItem("userName", data.fullName || "");
+      await claimGuestLinks(data.token);
       navigate("/user/dashboard");
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Login failed"));
@@ -91,6 +93,7 @@ export default function Login() {
         localStorage.setItem("token", data.token);
         localStorage.setItem("userEmail", data.email);
         localStorage.setItem("userName", data.fullName || "");
+        await claimGuestLinks(data.token);
         navigate("/user/dashboard");
       } catch (err: unknown) {
         setError(getErrorMessage(err, "Google login failed"));

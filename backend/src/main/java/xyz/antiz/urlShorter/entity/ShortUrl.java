@@ -22,6 +22,9 @@ public class ShortUrl {
     @Column(nullable = false, unique = true, length = 32)
     private String shortCode;
 
+    @Column(length = 80)
+    private String guestToken;
+
     @Column(nullable = false)
     private Long clickCount = 0L;
 
@@ -38,6 +41,7 @@ public class ShortUrl {
             Long userId,
             String longUrl,
             String shortCode,
+            String guestToken,
             Long clickCount,
             LocalDateTime createdAt,
             LocalDateTime lastAccessedAt) {
@@ -45,6 +49,7 @@ public class ShortUrl {
         this.userId = userId;
         this.longUrl = longUrl;
         this.shortCode = shortCode;
+        this.guestToken = guestToken;
         this.clickCount = clickCount;
         this.createdAt = createdAt;
         this.lastAccessedAt = lastAccessedAt;
@@ -80,6 +85,14 @@ public class ShortUrl {
 
     public void setShortCode(String shortCode) {
         this.shortCode = shortCode;
+    }
+
+    public String getGuestToken() {
+        return guestToken;
+    }
+
+    public void setGuestToken(String guestToken) {
+        this.guestToken = guestToken;
     }
 
     public Long getClickCount() {

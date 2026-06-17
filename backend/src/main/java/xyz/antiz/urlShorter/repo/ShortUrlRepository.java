@@ -20,6 +20,10 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
 
     long countByUserId(Long userId);
 
+    long countByGuestToken(String guestToken);
+
+    List<ShortUrl> findByGuestTokenAndUserId(String guestToken, Long userId);
+
     void deleteByUserId(Long userId);
 
     @Modifying

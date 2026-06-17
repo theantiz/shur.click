@@ -2,6 +2,7 @@ package xyz.antiz.urlShorter.controller;
 
 import xyz.antiz.urlShorter.dto.CreateShortUrlRequest;
 import xyz.antiz.urlShorter.dto.CreateShortUrlResponse;
+import xyz.antiz.urlShorter.dto.ClaimGuestUrlsRequest;
 import xyz.antiz.urlShorter.dto.UrlGeoAnalyticsResponse;
 import xyz.antiz.urlShorter.dto.UrlStatsResponse;
 import xyz.antiz.urlShorter.entity.ShortUrl;
@@ -13,10 +14,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 // Public endpoints - no authentication required
@@ -122,9 +125,10 @@ class AuthShortUrlController {
     @PostMapping
     public ResponseEntity<CreateShortUrlResponse> create(
             @RequestBody CreateShortUrlRequest request,
-            @RequestAttribute(value = "userId", required = false) Long userId) {
+            @RequestAttribute(value = "userId", required = false) Long userId,
+            @RequestHeader(value = "X-Guest-Token", required = false) String guestToken) {
 
-        ShortUrl saved = service.createShortUrl(request.getLongUrl(), request.getCustomAlias(), userId);
+        ShortUrl saved = service.createShortUrl(request.getLongUrl(), request.getCustomAlias(), userId, guestToken);
 
         String shortUrl = buildShortUrl(saved.getShortCode());
 
@@ -138,6 +142,15 @@ class AuthShortUrlController {
                 IstDateTime.format(saved.getLastAccessedAt()));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
+    }
+
+    @PostMapping("/claim-guest")
+    public ResponseEntity<Map<String, Integer>> claimGuestUrls(
+            @Valid @RequestBody ClaimGuestUrlsRequest request,
+            @RequestAttribute("userId") Long userId
+    ) {
+        int claimed = service.claimGuestUrls(userId, request.guestToken);
+        return ResponseEntity.ok(Map.of("claimed", claimed));
     }
 
     @GetMapping

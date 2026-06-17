@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -67,6 +68,70 @@ class UrlShorterApplicationTests {
 						.header("Access-Control-Request-Headers", "content-type"))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Access-Control-Allow-Origin", "https://www.shur.click"));
+	}
+
+	@Test
+	void guestCanCreateTwoLinksAndClaimThemAfterLogin() throws Exception {
+		String guestToken = "guesttokenclaim1234567890";
+
+		mockMvc.perform(post("/api/urls")
+						.header("X-Guest-Token", guestToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "longUrl": "https://example.com/one",
+								  "customAlias": "guestclaimone"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.shortCode").value("guestclaimone"));
+
+		mockMvc.perform(post("/api/urls")
+						.header("X-Guest-Token", guestToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "longUrl": "https://example.com/two",
+								  "customAlias": "guestclaimtwo"
+								}
+								"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.shortCode").value("guestclaimtwo"));
+
+		mockMvc.perform(post("/api/urls")
+						.header("X-Guest-Token", guestToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "longUrl": "https://example.com/three",
+								  "customAlias": "guestclaimthree"
+								}
+								"""))
+				.andExpect(status().isConflict());
+
+		User user = users.save(new User(
+				"Claim User",
+				"claim-user@test.com",
+				passwordEncoder.encode("Password123")
+		));
+		String token = jwtService.createToken(user.getId(), user.getEmail());
+
+		mockMvc.perform(post("/api/urls/claim-guest")
+						.header("Authorization", "Bearer " + token)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "guestToken": "guesttokenclaim1234567890"
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.claimed").value(2));
+
+		mockMvc.perform(get("/api/urls")
+						.header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[?(@.shortCode == 'guestclaimone')]").exists())
+				.andExpect(jsonPath("$[?(@.shortCode == 'guestclaimtwo')]").exists());
 	}
 
 	@Test

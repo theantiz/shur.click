@@ -5,7 +5,7 @@ const features = [
   },
   {
     title: "Shared Team Dashboard",
-    desc: "Create, monitor, and clean up URLs from one place without losing context.",
+    desc: "Try 2 links before signup, then keep them in your dashboard when you create an account.",
   },
   {
     title: "Reliable Analytics",
@@ -65,7 +65,7 @@ export default function Sections() {
           <article className="rounded-2xl border border-slate-200 bg-white/80 p-5">
             <p className="font-mono text-xs text-slate-500">FREE</p>
             <h4 className="mt-1 text-xl font-semibold text-slate-900">$0 / month</h4>
-            <p className="mt-2 text-sm text-slate-600">For solo creators starting with short links and tracking basics.</p>
+            <p className="mt-2 text-sm text-slate-600">Create 2 links before signup, then keep those links when you sign in and continue on the free plan.</p>
           </article>
           <article className="rounded-2xl border border-teal-200 bg-teal-50/70 p-5">
             <p className="font-mono text-xs text-teal-700">PRO</p>

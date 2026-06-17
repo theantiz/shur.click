@@ -27,7 +27,7 @@ public class ShortUrlService {
     private final SecureRandom random = new SecureRandom();
     private static final String CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final int FREE_TIER_LINK_LIMIT = 5;
-    private static final int GUEST_LINK_LIMIT = 5;
+    private static final int GUEST_LINK_LIMIT = 2;
     private static final String GUEST_EMAIL = "guest@shur.click";
 
     private static final String GUEST_NAME = "Guest User";
@@ -46,11 +46,12 @@ public class ShortUrlService {
     }
 
     @Transactional
-    public ShortUrl createShortUrl(String longUrl, String customAlias, Long userId) {
+    public ShortUrl createShortUrl(String longUrl, String customAlias, Long userId, String guestToken) {
 
         String normalized = normalize(longUrl);
         Long ownerId = resolveOwnerId(userId);
-        enforcePlanLimitIfNeeded(userId, ownerId);
+        String normalizedGuestToken = userId == null ? normalizeGuestToken(guestToken) : null;
+        enforcePlanLimitIfNeeded(userId, ownerId, normalizedGuestToken);
 
         // if alias is provided, use it
         if (customAlias != null && !customAlias.trim().isEmpty()) {
@@ -70,6 +71,7 @@ public class ShortUrlService {
             row.setUserId(ownerId);
             row.setLongUrl(normalized);
             row.setShortCode(alias);
+            row.setGuestToken(normalizedGuestToken);
             row.setClickCount(0L);
             row.setCreatedAt(IstDateTime.now());
 
@@ -85,6 +87,7 @@ public class ShortUrlService {
         row.setUserId(ownerId);
         row.setLongUrl(normalized);
         row.setShortCode(code);
+        row.setGuestToken(normalizedGuestToken);
         row.setClickCount(0L);
         row.setCreatedAt(IstDateTime.now());
 
@@ -143,6 +146,20 @@ public class ShortUrlService {
 
     public List<ShortUrl> getUserUrls(Long userId) {
         return repo.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    @Transactional
+    public int claimGuestUrls(Long userId, String guestToken) {
+        String normalizedGuestToken = normalizeGuestToken(guestToken);
+        Long guestOwnerId = resolveOwnerId(null);
+        List<ShortUrl> urls = repo.findByGuestTokenAndUserId(normalizedGuestToken, guestOwnerId);
+
+        for (ShortUrl url : urls) {
+            url.setUserId(userId);
+            url.setGuestToken(null);
+        }
+
+        return urls.size();
     }
 
     @Transactional
@@ -216,12 +233,12 @@ public class ShortUrlService {
         return guest.getId();
     }
 
-    private void enforcePlanLimitIfNeeded(Long requestedUserId, Long ownerId) {
+    private void enforcePlanLimitIfNeeded(Long requestedUserId, Long ownerId, String guestToken) {
         if (requestedUserId == null) {
-            long guestUsed = repo.countByUserId(ownerId);
+            long guestUsed = repo.countByGuestToken(guestToken);
             if (guestUsed >= GUEST_LINK_LIMIT) {
                 throw new IllegalStateException(
-                        "Guest limit reached (5 links). Please sign in to create more links."
+                        "Guest limit reached (2 links). Please sign in to keep these links and create more."
 
                 );
             }
@@ -241,5 +258,16 @@ public class ShortUrlService {
                     "Free plan limit reached (5 links). Upgrade to Pro for $2/month to unlock unlimited link generation."
             );
         }
+    }
+
+    private String normalizeGuestToken(String guestToken) {
+        if (guestToken == null || guestToken.isBlank()) {
+            throw new IllegalArgumentException("guestToken is required for guest links");
+        }
+        String token = guestToken.trim();
+        if (!token.matches("^[a-zA-Z0-9_-]{16,80}$")) {
+            throw new IllegalArgumentException("Invalid guest token");
+        }
+        return token;
     }
 }

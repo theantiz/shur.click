@@ -8,6 +8,7 @@ import {
   loadGoogleIdentityScript,
   type GoogleCredentialResponse,
 } from "../lib/googleIdentity";
+import { claimGuestLinks } from "../lib/guestLinks";
 
 type SignupFormData = {
   name: string;
@@ -111,6 +112,7 @@ export default function Signup() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("userEmail", data.email || formData.email);
       localStorage.setItem("userName", data.fullName || formData.name);
+      await claimGuestLinks(data.token);
       navigate("/user/dashboard");
     } catch (err: unknown) {
       setError(getErrorMessage(err, "OTP verification failed"));
@@ -151,6 +153,7 @@ export default function Signup() {
         localStorage.setItem("token", data.token);
         localStorage.setItem("userEmail", data.email);
         localStorage.setItem("userName", data.fullName || "");
+        await claimGuestLinks(data.token);
         navigate("/user/dashboard");
       } catch (err: unknown) {
         setError(getErrorMessage(err, "Google signup failed"));

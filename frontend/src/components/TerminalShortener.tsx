@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { ErrorAlert } from "./ErrorAlert";
 import { apiUrl } from "../lib/api";
 import { getApiErrorMessage } from "../lib/apiError";
+import {
+  GUEST_LIMIT,
+  getGuestCount,
+  getOrCreateGuestToken,
+  incrementGuestCount,
+} from "../lib/guestLinks";
 
 type CreateResponse = {
   shortCode: string;
@@ -19,27 +25,7 @@ type HistoryItem = {
 };
 
 const STORAGE_KEY = "urlshortener_history";
-const GUEST_COUNT_KEY = "guest_shorten_count";
-const GUEST_LIMIT = 5;
 const IST_TIMEZONE = "Asia/Kolkata";
-
-function getGuestCount(): number {
-  try {
-    return parseInt(localStorage.getItem(GUEST_COUNT_KEY) || "0", 10) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-function incrementGuestCount(): number {
-  try {
-    const next = getGuestCount() + 1;
-    localStorage.setItem(GUEST_COUNT_KEY, String(next));
-    return next;
-  } catch {
-    return 0;
-  }
-}
 
 /** Beautiful gate shown after guest limit is reached */
 function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
@@ -92,7 +78,7 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
           {/* Usage dots */}
           <div className="mb-5 flex items-center gap-2">
             <div className="flex items-center gap-1.5">
-              {[0, 1, 2, 3, 4].map((i) => (
+              {[0, 1].map((i) => (
                 <span
                   key={i}
                   className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -109,15 +95,15 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
               </span>
             </div>
             <span className="ml-1 rounded-full bg-amber-50 px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide text-amber-700 ring-1 ring-amber-200">
-              5 / 5 free used
+              2 / 2 free used
             </span>
           </div>
 
           <h3 className="text-xl font-semibold text-slate-900 sm:text-2xl">
-            You've used your 5 free shortens
+            You've used your 2 free shortens
           </h3>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-            Create a free account for <strong className="text-slate-700">unlimited links</strong>, click analytics, QR codes, and custom aliases — no credit card needed.
+            Create a free account to save these links to your dashboard, keep creating, and unlock click analytics, QR codes, and custom aliases.
           </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -146,7 +132,7 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
           </div>
 
           <p className="mt-4 text-xs text-slate-400">
-            Free forever · No credit card · Unlimited shortens
+            Your 2 guest links move into your account after signup or sign-in.
           </p>
         </div>
       </div>
@@ -155,7 +141,6 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
 }
 
 export default function TerminalShortener() {
-  const navigate = useNavigate();
   const [urlInput, setUrlInput] = useState("");
   const [customCode, setCustomCode] = useState("");
   const [shortUrl, setShortUrl] = useState("");
@@ -233,6 +218,7 @@ export default function TerminalShortener() {
       const token = localStorage.getItem("token");
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
+      if (!token) headers["X-Guest-Token"] = getOrCreateGuestToken();
 
       const res = await fetch(apiUrl("/api/urls"), {
         method: "POST",
@@ -251,11 +237,6 @@ export default function TerminalShortener() {
             500: "Server error while shortening URL. Please try again.",
           },
         );
-
-        if (!token && res.status === 409 && /guest limit reached/i.test(message)) {
-          navigate("/auth/signup");
-          return;
-        }
 
         throw new Error(message);
       }
@@ -280,8 +261,8 @@ export default function TerminalShortener() {
           setGuestLimitReached(true);
         }
       }
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to shorten");
+    } catch (err: unknown) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to shorten");
     } finally {
       setIsLoading(false);
     }
