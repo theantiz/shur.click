@@ -20,6 +20,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 
 import xyz.antiz.urlShorter.rate.RateLimitingFilter;
 
+import java.util.List;
+
 
 @Configuration
 @EnableWebSecurity
@@ -92,18 +94,35 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        for (String origin : allowedOrigins.split(",")) {
+        List.of(
+                "https://www.shur.click",
+                "https://shur.click",
+                "https://*.shur.click",
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173"
+        ).forEach(configuration::addAllowedOriginPattern);
+
+        for (String origin : splitCsv(allowedOrigins)) {
             String trimmedOrigin = origin.trim();
             if (!trimmedOrigin.isEmpty()) {
-                configuration.addAllowedOrigin(trimmedOrigin);
+                configuration.addAllowedOriginPattern(trimmedOrigin);
             }
         }
         configuration.addAllowedMethod("*");
         configuration.addAllowedHeader("*");
+        configuration.setAllowCredentials(false);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    private String[] splitCsv(String csv) {
+        if (csv == null || csv.isBlank()) return new String[0];
+        return csv.split(",");
     }
 
     @Bean
