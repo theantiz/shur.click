@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.*;
 import xyz.antiz.urlShorter.dto.billing.BillingStatusResponse;
 import xyz.antiz.urlShorter.dto.billing.RazorpayOrderResponse;
 import xyz.antiz.urlShorter.dto.billing.RazorpayVerifyRequest;
+import xyz.antiz.urlShorter.dto.billing.RedeemPromoRequest;
+import xyz.antiz.urlShorter.dto.billing.RedeemPromoResponse;
 import xyz.antiz.urlShorter.service.BillingService;
 import xyz.antiz.urlShorter.service.RazorpayBillingService;
 
@@ -40,5 +42,13 @@ public class BillingController {
     ) {
         razorpayBilling.verifyPayment(userId, req);
         return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PostMapping("/redeem-promo")
+    public ResponseEntity<RedeemPromoResponse> redeemPromo(
+            @RequestAttribute("userId") Long userId,
+            @Valid @RequestBody RedeemPromoRequest req
+    ) {
+        return ResponseEntity.ok(billing.redeemPromo(userId, req.getCode()));
     }
 }

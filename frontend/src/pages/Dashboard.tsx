@@ -93,6 +93,10 @@ export default function Dashboard() {
   const [qrOpenId, setQrOpenId] = useState<number | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [isRedeeming, setIsRedeeming] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
   const [geoOpenId, setGeoOpenId] = useState<number | null>(null);
   const [geoByCode, setGeoByCode] = useState<Record<string, UrlGeoAnalyticsResponse>>({});
   const [geoLoadingCode, setGeoLoadingCode] = useState<string | null>(null);
@@ -412,6 +416,42 @@ export default function Dashboard() {
       setError(upgradeError?.message || "Failed to start Razorpay checkout");
     } finally {
       setIsUpgrading(false);
+    }
+  };
+
+  const handleRedeemPromo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoCode.trim()) return;
+    setIsRedeeming(true);
+    setPromoError(null);
+    setPromoSuccess(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(apiUrl("/api/billing/redeem-promo"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code: promoCode.trim() }),
+      });
+
+      const promoApiError = await resolveApiError(res, "Failed to redeem promo code");
+      if (promoApiError) {
+        if (promoApiError === "__redirect__") return;
+        setPromoError(promoApiError);
+        return;
+      }
+
+      const data = (await res.json()) as { message: string };
+      setPromoSuccess(data.message);
+      setPromoCode("");
+      await fetchBilling();
+    } catch (redeemError: any) {
+      setPromoError(redeemError?.message || "Failed to redeem promo code");
+    } finally {
+      setIsRedeeming(false);
     }
   };
 
@@ -806,6 +846,36 @@ export default function Dashboard() {
                 >
                   {isUpgrading ? "Opening checkout..." : `Upgrade Pro - $${billing.proMonthlyPriceUsd}/month`}
                 </button>
+              )}
+
+              {/* Promo code redemption — shown only on FREE plan */}
+              {!billing.proActive && (
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <p className="mb-2 text-xs font-medium text-slate-500">Have a promo code?</p>
+                  <form onSubmit={handleRedeemPromo} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      placeholder="Enter promo code"
+                      maxLength={64}
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-mono text-xs uppercase tracking-wider outline-none transition focus:border-teal-600"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isRedeeming || !promoCode.trim()}
+                      className="rounded-lg border border-teal-600 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isRedeeming ? "..." : "Redeem"}
+                    </button>
+                  </form>
+                  {promoSuccess && (
+                    <p className="mt-2 text-xs font-medium text-teal-700">{promoSuccess}</p>
+                  )}
+                  {promoError && (
+                    <p className="mt-2 text-xs text-rose-600">{promoError}</p>
+                  )}
+                </div>
               )}
             </section>
           )}

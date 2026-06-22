@@ -1,10 +1,17 @@
 package xyz.antiz.urlShorter.service;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import xyz.antiz.urlShorter.dto.billing.BillingStatusResponse;
+import xyz.antiz.urlShorter.dto.billing.RedeemPromoResponse;
 import xyz.antiz.urlShorter.entity.PlanTier;
+import xyz.antiz.urlShorter.entity.PromoCode;
+import xyz.antiz.urlShorter.entity.PromoRedemption;
 import xyz.antiz.urlShorter.entity.User;
+import xyz.antiz.urlShorter.repo.PromoCodeRepository;
+import xyz.antiz.urlShorter.repo.PromoRedemptionRepository;
 import xyz.antiz.urlShorter.repo.ShortUrlRepository;
 import xyz.antiz.urlShorter.repo.UserRepository;
 
@@ -18,10 +25,15 @@ public class BillingService {
 
     private final UserRepository users;
     private final ShortUrlRepository urls;
+    private final PromoCodeRepository promoCodes;
+    private final PromoRedemptionRepository promoRedemptions;
 
-    public BillingService(UserRepository users, ShortUrlRepository urls) {
+    public BillingService(UserRepository users, ShortUrlRepository urls,
+                          PromoCodeRepository promoCodes, PromoRedemptionRepository promoRedemptions) {
         this.users = users;
         this.urls = urls;
+        this.promoCodes = promoCodes;
+        this.promoRedemptions = promoRedemptions;
     }
 
     @Transactional(readOnly = true)
@@ -75,5 +87,49 @@ public class BillingService {
         user.setPlanTier(PlanTier.PRO);
         user.setProExpiresAt(base.plusDays(30));
         users.save(user);
+    }
+
+    @Transactional
+    public RedeemPromoResponse redeemPromo(Long userId, String rawCode) {
+        String code = rawCode == null ? "" : rawCode.trim();
+
+        PromoCode promo = promoCodes.findByCodeIgnoreCase(code)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid promo code"));
+
+        if (!promo.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This promo code is no longer active");
+        }
+        if (promo.getExpiresAt() != null && promo.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This promo code has expired");
+        }
+        if (promo.getMaxUses() >= 0 && promo.getUseCount() >= promo.getMaxUses()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This promo code has reached its usage limit");
+        }
+
+        // Prevent the same user from redeeming the same code more than once
+        if (promoRedemptions.existsByUserIdAndPromoCodeId(userId, promo.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You have already redeemed this promo code");
+        }
+
+        User user = users.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Grant durationMonths × 30 days of Pro, stacking on top of any existing Pro expiry
+        for (int i = 0; i < promo.getDurationMonths(); i++) {
+            activateProMonthly(user);
+            // Reload so each call stacks correctly
+            user = users.findById(userId).orElseThrow();
+        }
+
+        promo.setUseCount(promo.getUseCount() + 1);
+        promoCodes.save(promo);
+
+        // Record the redemption so this user cannot redeem the same code again
+        promoRedemptions.save(new PromoRedemption(userId, promo.getId()));
+
+        return new RedeemPromoResponse(
+                "🎉 Promo applied! You now have " + promo.getDurationMonths() + " months of Pro access.",
+                user.getProExpiresAt()
+        );
     }
 }
