@@ -14,7 +14,7 @@ This repository is public. Do not commit real secrets, private database URLs, AP
 - Country click analytics for Pro users.
 - Dashboard for creating, listing, copying, deleting, and tracking links.
 - Two guest-created links before signup; those links are moved into the user's account after signup or sign-in.
-- QR code display for generated links.
+- QR code display for generated links with download as PNG and native share via the Web Share API.
 - JWT authentication.
 - OTP-based signup, password reset, and profile email-change verification.
 - Google Identity sign-in.
