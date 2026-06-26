@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
 
 import { apiUrl } from "../lib/api";
 import { getApiErrorMessage } from "../lib/apiError";
@@ -91,6 +91,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [qrOpenId, setQrOpenId] = useState<number | null>(null);
+  const qrCanvasRef = useRef<HTMLDivElement>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [promoCode, setPromoCode] = useState("");
@@ -1000,8 +1001,55 @@ export default function Dashboard() {
                           {qrOpen ? "[-] hide qr" : "[+] show qr"}
                         </button>
                         {qrOpen && (
-                          <div className="self-start rounded-lg border border-slate-200 bg-white p-2 sm:self-end">
-                            <QRCodeSVG value={computedShortUrl} size={88} level="M" includeMargin={false} />
+                          <div className="flex flex-col items-start gap-2 sm:items-end">
+                            <div ref={qrOpen ? qrCanvasRef : undefined} className="self-start rounded-lg border border-slate-200 bg-white p-2 sm:self-end">
+                              <QRCodeCanvas value={computedShortUrl} size={88} level="M" includeMargin={false} />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const wrapper = qrCanvasRef.current;
+                                  if (!wrapper) return;
+                                  const canvas = wrapper.querySelector("canvas");
+                                  if (!canvas) return;
+                                  const link = document.createElement("a");
+                                  link.download = `qr-${url.shortCode}.png`;
+                                  link.href = canvas.toDataURL("image/png");
+                                  link.click();
+                                }}
+                                className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[10px] text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                              >
+                                ↓ download
+                              </button>
+                              {typeof navigator.share === "function" && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const wrapper = qrCanvasRef.current;
+                                    if (!wrapper) return;
+                                    const canvas = wrapper.querySelector("canvas");
+                                    if (!canvas) return;
+                                    canvas.toBlob(async (blob) => {
+                                      if (!blob) return;
+                                      const file = new File([blob], `qr-${url.shortCode}.png`, { type: "image/png" });
+                                      try {
+                                        await navigator.share({
+                                          title: `QR for ${computedShortUrl}`,
+                                          text: computedShortUrl,
+                                          files: [file],
+                                        });
+                                      } catch {
+                                        // User cancelled share or share not supported
+                                      }
+                                    }, "image/png");
+                                  }}
+                                  className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[10px] text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                                >
+                                  ⤴ share
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
 
