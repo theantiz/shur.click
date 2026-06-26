@@ -26,7 +26,12 @@ export default function Feedback() {
         body: JSON.stringify(form),
       });
       if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response, "Unable to send feedback right now"));
+        throw new Error(
+          await getApiErrorMessage(
+            response,
+            "Unable to send feedback right now",
+          ),
+        );
       }
       setSuccess("Thanks for your feedback. It has been sent.");
       setForm((prev) => ({ ...prev, message: "" }));
@@ -44,11 +49,15 @@ export default function Feedback() {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Name</span>
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Name
+          </span>
           <input
             type="text"
             value={form.name}
-            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, name: e.target.value }))
+            }
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-600"
             minLength={2}
             maxLength={120}
@@ -56,21 +65,29 @@ export default function Feedback() {
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Email</span>
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Email
+          </span>
           <input
             type="email"
             value={form.email}
-            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, email: e.target.value }))
+            }
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-600"
             maxLength={190}
             required
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Message</span>
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Message
+          </span>
           <textarea
             value={form.message}
-            onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, message: e.target.value }))
+            }
             className="min-h-32 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-600"
             minLength={10}
             maxLength={3000}

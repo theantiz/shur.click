@@ -3,7 +3,9 @@ export const IST_TIMEZONE = "Asia/Kolkata";
 const OFFSET_SUFFIX_PATTERN = /(?:[zZ]|[+-]\d{2}:\d{2})$/;
 const NAIVE_ISO_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
 
-export function parseApiDateTime(value: string | null | undefined): Date | null {
+export function parseApiDateTime(
+  value: string | null | undefined,
+): Date | null {
   if (!value) return null;
 
   const trimmed = value.trim();
@@ -19,7 +21,10 @@ export function parseApiDateTime(value: string | null | undefined): Date | null 
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function formatIstDateTime(value: string | null | undefined, fallback = "Never") {
+export function formatIstDateTime(
+  value: string | null | undefined,
+  fallback = "Never",
+) {
   const parsed = parseApiDateTime(value);
   if (!parsed) return fallback;
 

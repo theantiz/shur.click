@@ -4,9 +4,7 @@ type FooterProps = {
   productName?: string;
 };
 
-export default function Footer({
-  productName = "shur.click",
-}: FooterProps) {
+export default function Footer({ productName = "shur.click" }: FooterProps) {
   const year = new Date().getFullYear();
   const footerLinks = [
     { label: "Home", to: "/" },
@@ -23,13 +21,18 @@ export default function Footer({
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-500 bg-slate-100 text-[10px] font-bold leading-none">
             SC
           </span>
-          <span className="text-lg font-medium tracking-tight">_{productName}</span>
+          <span className="text-lg font-medium tracking-tight">
+            _{productName}
+          </span>
         </div>
 
         <ul className="mx-auto mt-6 flex max-w-3xl flex-wrap items-center justify-center gap-y-2 text-sm text-slate-600">
           {footerLinks.map((item, idx) => (
             <li key={item.to} className="flex items-center">
-              <Link to={item.to} className="link-underline px-2 transition hover:text-slate-900 sm:px-3">
+              <Link
+                to={item.to}
+                className="link-underline px-2 transition hover:text-slate-900 sm:px-3"
+              >
                 {item.label}
               </Link>
               {idx < footerLinks.length - 1 && (

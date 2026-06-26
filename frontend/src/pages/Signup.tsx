@@ -22,7 +22,8 @@ type OtpInitResponse = {
   challengeId: string;
 };
 
-const DEFAULT_GOOGLE_CLIENT_ID = "249537386676-1b3dkci1si4h0p79lt3v1470jug2a2j3.apps.googleusercontent.com";
+const DEFAULT_GOOGLE_CLIENT_ID =
+  "249537386676-1b3dkci1si4h0p79lt3v1470jug2a2j3.apps.googleusercontent.com";
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error && err.message ? err.message : fallback;
@@ -45,7 +46,9 @@ export default function Signup() {
   const [isGoogleScriptLoading, setIsGoogleScriptLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID).trim();
+  const googleClientId = (
+    import.meta.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
+  ).trim();
 
   const isOtpStep = Boolean(challengeId);
 
@@ -78,7 +81,9 @@ export default function Signup() {
       });
 
       if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response, "Registration failed"));
+        throw new Error(
+          await getApiErrorMessage(response, "Registration failed"),
+        );
       }
 
       const data = (await response.json()) as OtpInitResponse;
@@ -105,7 +110,9 @@ export default function Signup() {
       });
 
       if (!response.ok) {
-        throw new Error(await getApiErrorMessage(response, "OTP verification failed"));
+        throw new Error(
+          await getApiErrorMessage(response, "OTP verification failed"),
+        );
       }
 
       const data = await response.json();
@@ -127,9 +134,17 @@ export default function Signup() {
   };
 
   useEffect(() => {
-    if (isOtpStep || !googleClientId || !googleButtonRef.current || googleLoadAttempt === 0) return;
+    if (
+      isOtpStep ||
+      !googleClientId ||
+      !googleButtonRef.current ||
+      googleLoadAttempt === 0
+    )
+      return;
 
-    const handleGoogleCredential = async (response: GoogleCredentialResponse) => {
+    const handleGoogleCredential = async (
+      response: GoogleCredentialResponse,
+    ) => {
       const idToken = response.credential;
       if (!idToken) {
         setError("Google signup failed");
@@ -146,7 +161,9 @@ export default function Signup() {
         });
 
         if (!res.ok) {
-          throw new Error(await getApiErrorMessage(res, "Google signup failed"));
+          throw new Error(
+            await getApiErrorMessage(res, "Google signup failed"),
+          );
         }
 
         const data = await res.json();
@@ -168,7 +185,10 @@ export default function Signup() {
       const container = googleButtonRef.current;
       if (!container || !window.google?.accounts?.id) return;
       container.innerHTML = "";
-      const buttonWidth = Math.min(360, Math.max(240, Math.floor(container.clientWidth || 320)));
+      const buttonWidth = Math.min(
+        360,
+        Math.max(240, Math.floor(container.clientWidth || 320)),
+      );
       initializeGoogleIdentity(googleClientId, handleGoogleCredential);
       window.google.accounts.id.renderButton(container, {
         type: "standard",
@@ -193,7 +213,9 @@ export default function Signup() {
         .catch(() => {
           if (!isMounted) return;
           setIsGoogleScriptLoading(false);
-          setError("Failed to load Google signup. Use email and password instead.");
+          setError(
+            "Failed to load Google signup. Use email and password instead.",
+          );
         });
     }
 
@@ -215,7 +237,10 @@ export default function Signup() {
       footer={
         <>
           Already have an account?{" "}
-          <Link to="/auth/login" className="font-medium text-teal-700 hover:text-teal-800">
+          <Link
+            to="/auth/login"
+            className="font-medium text-teal-700 hover:text-teal-800"
+          >
             Sign in
           </Link>
         </>
@@ -224,7 +249,9 @@ export default function Signup() {
       {!isOtpStep ? (
         <form onSubmit={handleInitSubmit} className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">Full name</span>
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Full name
+            </span>
             <input
               type="text"
               name="name"
@@ -237,7 +264,9 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">Email</span>
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Email
+            </span>
             <input
               type="email"
               name="email"
@@ -250,7 +279,9 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">Password</span>
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Password
+            </span>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -269,14 +300,22 @@ export default function Signup() {
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                  >
                     <path d="M3 3l18 18" />
                     <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
                     <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
                     <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
                   </svg>
                 ) : (
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                  >
                     <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
@@ -286,7 +325,9 @@ export default function Signup() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">Confirm password</span>
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Confirm password
+            </span>
             <div className="relative">
               <input
                 type={showConfirmPassword ? "text" : "password"}
@@ -301,17 +342,29 @@ export default function Signup() {
                 type="button"
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
                 className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-slate-700"
-                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
               >
                 {showConfirmPassword ? (
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                  >
                     <path d="M3 3l18 18" />
                     <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
                     <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
                     <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
                   </svg>
                 ) : (
-                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                  >
                     <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
@@ -320,7 +373,11 @@ export default function Signup() {
             </div>
           </label>
 
-          {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
@@ -338,11 +395,17 @@ export default function Signup() {
 
           <div className="my-1 flex items-center gap-3">
             <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs uppercase tracking-[0.08em] text-slate-500">or</span>
+            <span className="text-xs uppercase tracking-[0.08em] text-slate-500">
+              or
+            </span>
             <div className="h-px flex-1 bg-slate-200" />
           </div>
           <div className="flex min-h-11 w-full flex-col items-center justify-center gap-2">
-            {isGoogleLoading && <span className="text-xs text-slate-500">Signing up with Google...</span>}
+            {isGoogleLoading && (
+              <span className="text-xs text-slate-500">
+                Signing up with Google...
+              </span>
+            )}
             {googleLoadAttempt === 0 ? (
               <button
                 type="button"
@@ -353,15 +416,25 @@ export default function Signup() {
               </button>
             ) : (
               <>
-                {isGoogleScriptLoading && <span className="text-xs text-slate-500">Loading Google sign-in...</span>}
-                <div ref={googleButtonRef} className={`google-auth-button w-full max-w-[360px] ${isGoogleLoading ? "hidden" : ""}`} />
+                {isGoogleScriptLoading && (
+                  <span className="text-xs text-slate-500">
+                    Loading Google sign-in...
+                  </span>
+                )}
+                <div
+                  ref={googleButtonRef}
+                  className={`google-auth-button w-full max-w-[360px] ${isGoogleLoading ? "hidden" : ""}`}
+                />
               </>
             )}
           </div>
 
           <p className="text-center text-xs text-slate-500">
             Need to recover account?{" "}
-            <Link to="/forgot-password" className="font-medium text-teal-700 hover:text-teal-800">
+            <Link
+              to="/forgot-password"
+              className="font-medium text-teal-700 hover:text-teal-800"
+            >
               Reset password
             </Link>
           </p>
@@ -369,18 +442,26 @@ export default function Signup() {
       ) : (
         <form onSubmit={handleVerifySubmit} className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-600">OTP code</span>
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              OTP code
+            </span>
             <input
               type="text"
               value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) =>
+                setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
               placeholder="6-digit OTP"
               className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm tracking-[0.12em] outline-none transition focus:border-teal-600 sm:tracking-[0.35em]"
               required
             />
           </label>
 
-          {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"

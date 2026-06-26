@@ -1,10 +1,20 @@
-import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type FormEvent,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 
 import { apiUrl } from "../lib/api";
 import { getApiErrorMessage } from "../lib/apiError";
-import { formatIstDateTime, IST_TIMEZONE, parseApiDateTime } from "../lib/dateTime";
+import {
+  formatIstDateTime,
+  IST_TIMEZONE,
+  parseApiDateTime,
+} from "../lib/dateTime";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Skeleton from "../components/Skeleton";
 
@@ -99,15 +109,22 @@ export default function Dashboard() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
   const [geoOpenId, setGeoOpenId] = useState<number | null>(null);
-  const [geoByCode, setGeoByCode] = useState<Record<string, UrlGeoAnalyticsResponse>>({});
+  const [geoByCode, setGeoByCode] = useState<
+    Record<string, UrlGeoAnalyticsResponse>
+  >({});
   const [geoLoadingCode, setGeoLoadingCode] = useState<string | null>(null);
-  const [geoErrorByCode, setGeoErrorByCode] = useState<Record<string, string>>({});
+  const [geoErrorByCode, setGeoErrorByCode] = useState<Record<string, string>>(
+    {},
+  );
   const [pendingDelete, setPendingDelete] = useState<UrlEntry | null>(null);
   const [isDeletingLink, setIsDeletingLink] = useState(false);
-  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
+  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] =
+    useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profileTab, setProfileTab] = useState<"profile" | "password" | "danger">("profile");
+  const [profileTab, setProfileTab] = useState<
+    "profile" | "password" | "danger"
+  >("profile");
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [profileFullName, setProfileFullName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -117,8 +134,12 @@ export default function Dashboard() {
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileEmailOtpChallengeId, setProfileEmailOtpChallengeId] = useState<string | null>(null);
-  const [profilePendingEmail, setProfilePendingEmail] = useState<string | null>(null);
+  const [profileEmailOtpChallengeId, setProfileEmailOtpChallengeId] = useState<
+    string | null
+  >(null);
+  const [profilePendingEmail, setProfilePendingEmail] = useState<string | null>(
+    null,
+  );
   const [profileEmailOtp, setProfileEmailOtp] = useState("");
   const [isProfileOtpVerifying, setIsProfileOtpVerifying] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -146,8 +167,16 @@ export default function Dashboard() {
       statusMessages: Partial<Record<number, string>> = {},
     ): Promise<string | null> => {
       if (response.ok) return null;
-      const message = await getApiErrorMessage(response, fallback, statusMessages);
-      if (response.status === 401 || response.status === 403 || /user not found/i.test(message)) {
+      const message = await getApiErrorMessage(
+        response,
+        fallback,
+        statusMessages,
+      );
+      if (
+        response.status === 401 ||
+        response.status === 403 ||
+        /user not found/i.test(message)
+      ) {
         clearAuthAndRedirect();
         return "__redirect__";
       }
@@ -182,7 +211,11 @@ export default function Dashboard() {
       setUrls(mappedUrls);
     } catch (fetchError) {
       console.error("Error fetching URLs:", fetchError);
-      setError(fetchError instanceof Error ? fetchError.message : "Failed to fetch URLs");
+      setError(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to fetch URLs",
+      );
     }
   }, [resolveApiError]);
 
@@ -193,7 +226,10 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const apiError = await resolveApiError(response, "Failed to fetch billing status");
+      const apiError = await resolveApiError(
+        response,
+        "Failed to fetch billing status",
+      );
       if (apiError) {
         if (apiError === "__redirect__") return;
         throw new Error(apiError);
@@ -206,37 +242,47 @@ export default function Dashboard() {
     }
   }, [resolveApiError]);
 
-  const fetchGeoAnalytics = useCallback(async (shortCode: string) => {
-    if (!shortCode) return;
-    try {
-      setGeoLoadingCode(shortCode);
-      setGeoErrorByCode((prev) => {
-        const next = { ...prev };
-        delete next[shortCode];
-        return next;
-      });
-      const token = localStorage.getItem("token");
-      const response = await fetch(apiUrl(`/api/urls/${encodeURIComponent(shortCode)}/geo-analytics`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+  const fetchGeoAnalytics = useCallback(
+    async (shortCode: string) => {
+      if (!shortCode) return;
+      try {
+        setGeoLoadingCode(shortCode);
+        setGeoErrorByCode((prev) => {
+          const next = { ...prev };
+          delete next[shortCode];
+          return next;
+        });
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          apiUrl(`/api/urls/${encodeURIComponent(shortCode)}/geo-analytics`),
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
 
-      const apiError = await resolveApiError(response, "Failed to fetch country analytics");
-      if (apiError) {
-        if (apiError === "__redirect__") return;
-        throw new Error(apiError);
+        const apiError = await resolveApiError(
+          response,
+          "Failed to fetch country analytics",
+        );
+        if (apiError) {
+          if (apiError === "__redirect__") return;
+          throw new Error(apiError);
+        }
+
+        const data = (await response.json()) as UrlGeoAnalyticsResponse;
+        setGeoByCode((prev) => ({ ...prev, [shortCode]: data }));
+      } catch (analyticsError: any) {
+        setGeoErrorByCode((prev) => ({
+          ...prev,
+          [shortCode]:
+            analyticsError?.message || "Failed to fetch country analytics",
+        }));
+      } finally {
+        setGeoLoadingCode((prev) => (prev === shortCode ? null : prev));
       }
-
-      const data = (await response.json()) as UrlGeoAnalyticsResponse;
-      setGeoByCode((prev) => ({ ...prev, [shortCode]: data }));
-    } catch (analyticsError: any) {
-      setGeoErrorByCode((prev) => ({
-        ...prev,
-        [shortCode]: analyticsError?.message || "Failed to fetch country analytics",
-      }));
-    } finally {
-      setGeoLoadingCode((prev) => (prev === shortCode ? null : prev));
-    }
-  }, [resolveApiError]);
+    },
+    [resolveApiError],
+  );
 
   const refreshDashboard = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -352,7 +398,10 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const orderApiError = await resolveApiError(orderRes, "Failed to start Razorpay checkout");
+      const orderApiError = await resolveApiError(
+        orderRes,
+        "Failed to start Razorpay checkout",
+      );
       if (orderApiError) {
         if (orderApiError === "__redirect__") return;
         throw new Error(orderApiError);
@@ -395,7 +444,10 @@ export default function Dashboard() {
             }),
           });
 
-          const verifyApiError = await resolveApiError(verifyRes, "Payment verification failed");
+          const verifyApiError = await resolveApiError(
+            verifyRes,
+            "Payment verification failed",
+          );
           if (verifyApiError) {
             if (verifyApiError === "__redirect__") return;
             setError(verifyApiError);
@@ -407,7 +459,9 @@ export default function Dashboard() {
         },
         modal: {
           ondismiss: () => {
-            setError("Razorpay checkout canceled. Your current plan is unchanged.");
+            setError(
+              "Razorpay checkout canceled. Your current plan is unchanged.",
+            );
           },
         },
       });
@@ -438,7 +492,10 @@ export default function Dashboard() {
         body: JSON.stringify({ code: promoCode.trim() }),
       });
 
-      const promoApiError = await resolveApiError(res, "Failed to redeem promo code");
+      const promoApiError = await resolveApiError(
+        res,
+        "Failed to redeem promo code",
+      );
       if (promoApiError) {
         if (promoApiError === "__redirect__") return;
         setPromoError(promoApiError);
@@ -479,7 +536,10 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const apiError = await resolveApiError(response, "Failed to load profile");
+      const apiError = await resolveApiError(
+        response,
+        "Failed to load profile",
+      );
       if (apiError) {
         if (apiError === "__redirect__") return;
         throw new Error(apiError);
@@ -523,7 +583,10 @@ export default function Dashboard() {
         }),
       });
 
-      const apiError = await resolveApiError(response, "Failed to update profile");
+      const apiError = await resolveApiError(
+        response,
+        "Failed to update profile",
+      );
       if (apiError) {
         if (apiError === "__redirect__") return;
         throw new Error(apiError);
@@ -538,7 +601,9 @@ export default function Dashboard() {
         setProfileEmailOtpChallengeId(data.challengeId);
         setProfilePendingEmail(data.pendingEmail || profileEmail.trim());
         setProfileEmailOtp("");
-        setProfileMessage(data.message || "OTP sent to new email. Verify to complete update.");
+        setProfileMessage(
+          data.message || "OTP sent to new email. Verify to complete update.",
+        );
       } else {
         setInitialProfileFullName(data.fullName || profileFullName);
         setInitialProfileEmail(data.email || profileEmail);
@@ -623,7 +688,10 @@ export default function Dashboard() {
         }),
       });
 
-      const apiError = await resolveApiError(response, "Failed to update password");
+      const apiError = await resolveApiError(
+        response,
+        "Failed to update password",
+      );
       if (apiError) {
         if (apiError === "__redirect__") return;
         throw new Error(apiError);
@@ -638,7 +706,9 @@ export default function Dashboard() {
       setShowNewPassword(false);
       setShowConfirmNewPassword(false);
     } catch (passwordSaveError: any) {
-      setPasswordError(passwordSaveError?.message || "Failed to update password");
+      setPasswordError(
+        passwordSaveError?.message || "Failed to update password",
+      );
     } finally {
       setIsPasswordSaving(false);
     }
@@ -675,7 +745,10 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const apiError = await resolveApiError(response, "Failed to delete account");
+      const apiError = await resolveApiError(
+        response,
+        "Failed to delete account",
+      );
       if (apiError) {
         if (apiError === "__redirect__") return;
         throw new Error(apiError);
@@ -744,7 +817,10 @@ export default function Dashboard() {
       <header className="sticky top-0 z-20 border-b border-slate-900/10 bg-white/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
-            <Link to="/" className="font-mono text-sm font-semibold text-teal-800 sm:text-base">
+            <Link
+              to="/"
+              className="font-mono text-sm font-semibold text-teal-800 sm:text-base"
+            >
               shur.click
             </Link>
             <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-slate-500">
@@ -759,7 +835,10 @@ export default function Dashboard() {
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:border-teal-600 hover:text-teal-700"
             >
               <span className="font-mono text-xs font-semibold">
-                {(profileFullName || localStorage.getItem("userName") || "U").trim().charAt(0).toUpperCase()}
+                {(profileFullName || localStorage.getItem("userName") || "U")
+                  .trim()
+                  .charAt(0)
+                  .toUpperCase()}
               </span>
             </button>
             <button
@@ -776,27 +855,38 @@ export default function Dashboard() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
             <p className="font-mono text-xs text-slate-500">LINKS</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{urls.length}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">
+              {urls.length}
+            </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
             <p className="font-mono text-xs text-slate-500">TOTAL CLICKS</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{totalClicks}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">
+              {totalClicks}
+            </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
             <p className="font-mono text-xs text-slate-500">AVG / LINK</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{urls.length ? Math.round(totalClicks / urls.length) : 0}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">
+              {urls.length ? Math.round(totalClicks / urls.length) : 0}
+            </p>
           </div>
         </div>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
           <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-900">Create Link</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Create Link
+            </h2>
             {error && (
               <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
                 {error}
               </div>
             )}
-            <form onSubmit={handleCreateUrl} className="mt-3 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
+            <form
+              onSubmit={handleCreateUrl}
+              className="mt-3 grid gap-3 sm:grid-cols-[1fr_180px_auto]"
+            >
               <input
                 type="url"
                 value={longUrl}
@@ -826,11 +916,17 @@ export default function Dashboard() {
             <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
               <p className="font-mono text-xs text-slate-500">PLAN</p>
               <p className="mt-1 text-lg font-semibold text-slate-900">
-                {billing.proActive ? "PRO (Unlimited)" : `FREE (${billing.usedLinks}/${billing.freeTierLimit})`}
+                {billing.proActive
+                  ? "PRO (Unlimited)"
+                  : `FREE (${billing.usedLinks}/${billing.freeTierLimit})`}
               </p>
               {billing.proActive && billing.proExpiresAt && (
                 <p className="mt-1 text-xs text-slate-500">
-                  Active until {parseApiDateTime(billing.proExpiresAt)?.toLocaleDateString("en-IN", { timeZone: IST_TIMEZONE }) ?? "N/A"}
+                  Active until{" "}
+                  {parseApiDateTime(billing.proExpiresAt)?.toLocaleDateString(
+                    "en-IN",
+                    { timeZone: IST_TIMEZONE },
+                  ) ?? "N/A"}
                 </p>
               )}
               {!billing.proActive && (
@@ -845,19 +941,25 @@ export default function Dashboard() {
                   disabled={isUpgrading}
                   className="mt-4 w-full rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isUpgrading ? "Opening checkout..." : `Upgrade Pro - $${billing.proMonthlyPriceUsd}/month`}
+                  {isUpgrading
+                    ? "Opening checkout..."
+                    : `Upgrade Pro - $${billing.proMonthlyPriceUsd}/month`}
                 </button>
               )}
 
               {/* Promo code redemption — shown only on FREE plan */}
               {!billing.proActive && (
                 <div className="mt-4 border-t border-slate-200 pt-4">
-                  <p className="mb-2 text-xs font-medium text-slate-500">Have a promo code?</p>
+                  <p className="mb-2 text-xs font-medium text-slate-500">
+                    Have a promo code?
+                  </p>
                   <form onSubmit={handleRedeemPromo} className="flex gap-2">
                     <input
                       type="text"
                       value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setPromoCode(e.target.value.toUpperCase())
+                      }
                       placeholder="Enter promo code"
                       maxLength={64}
                       className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-mono text-xs uppercase tracking-wider outline-none transition focus:border-teal-600"
@@ -871,7 +973,9 @@ export default function Dashboard() {
                     </button>
                   </form>
                   {promoSuccess && (
-                    <p className="mt-2 text-xs font-medium text-teal-700">{promoSuccess}</p>
+                    <p className="mt-2 text-xs font-medium text-teal-700">
+                      {promoSuccess}
+                    </p>
                   )}
                   {promoError && (
                     <p className="mt-2 text-xs text-rose-600">{promoError}</p>
@@ -888,11 +992,14 @@ export default function Dashboard() {
           </div>
 
           {urls.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-slate-500">No links yet. Create your first one above.</p>
+            <p className="px-5 py-8 text-center text-sm text-slate-500">
+              No links yet. Create your first one above.
+            </p>
           ) : (
             <div className="divide-y divide-slate-200">
               {urls.map((url) => {
-                const computedShortUrl = url.shortUrl || `${window.location.origin}/${url.shortCode}`;
+                const computedShortUrl =
+                  url.shortUrl || `${window.location.origin}/${url.shortCode}`;
                 const qrOpen = qrOpenId === url.id;
                 const geoOpen = geoOpenId === url.id;
                 const geoData = geoByCode[url.shortCode];
@@ -918,7 +1025,9 @@ export default function Dashboard() {
                             {copiedId === url.id ? "Copied" : "Copy"}
                           </button>
                         </div>
-                        <p className="mt-1 break-all text-xs text-slate-500 sm:truncate">{url.longUrl}</p>
+                        <p className="mt-1 break-all text-xs text-slate-500 sm:truncate">
+                          {url.longUrl}
+                        </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                           <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5">
                             Created: {formatDateTime(url.createdAt)}
@@ -944,34 +1053,55 @@ export default function Dashboard() {
                               }}
                               className="mt-2 block font-mono text-xs text-slate-600 transition hover:text-slate-900"
                             >
-                              {geoOpen ? "[-] hide country analytics" : "[+] show country analytics"}
+                              {geoOpen
+                                ? "[-] hide country analytics"
+                                : "[+] show country analytics"}
                             </button>
 
                             {geoOpen && (
                               <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
                                 {geoLoading && (
-                                  <p className="text-xs text-slate-500">Loading country analytics...</p>
+                                  <p className="text-xs text-slate-500">
+                                    Loading country analytics...
+                                  </p>
                                 )}
                                 {geoError && (
-                                  <p className="text-xs text-rose-700">{geoError}</p>
+                                  <p className="text-xs text-rose-700">
+                                    {geoError}
+                                  </p>
                                 )}
                                 {!geoLoading && !geoError && geoData && (
                                   <div>
                                     <div className="mb-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
                                       <span>Total: {geoData.totalClicks}</span>
-                                      <span>Country-tracked: {geoData.countryTrackedClicks}</span>
+                                      <span>
+                                        Country-tracked:{" "}
+                                        {geoData.countryTrackedClicks}
+                                      </span>
                                     </div>
                                     {geoData.topCountries.length === 0 ? (
-                                      <p className="text-xs text-slate-500">No country data yet.</p>
+                                      <p className="text-xs text-slate-500">
+                                        No country data yet.
+                                      </p>
                                     ) : (
                                       <div className="space-y-1.5">
                                         {geoData.topCountries.map((row) => {
-                                          const denom = geoData.countryTrackedClicks || 1;
-                                          const pct = Math.round((row.clicks / denom) * 100);
+                                          const denom =
+                                            geoData.countryTrackedClicks || 1;
+                                          const pct = Math.round(
+                                            (row.clicks / denom) * 100,
+                                          );
                                           return (
-                                            <div key={row.countryCode} className="flex items-center justify-between rounded-md border border-slate-200 px-2 py-1 text-xs">
-                                              <span className="font-mono text-slate-700">{row.countryCode}</span>
-                                              <span className="text-slate-600">{row.clicks} ({pct}%)</span>
+                                            <div
+                                              key={row.countryCode}
+                                              className="flex items-center justify-between rounded-md border border-slate-200 px-2 py-1 text-xs"
+                                            >
+                                              <span className="font-mono text-slate-700">
+                                                {row.countryCode}
+                                              </span>
+                                              <span className="text-slate-600">
+                                                {row.clicks} ({pct}%)
+                                              </span>
                                             </div>
                                           );
                                         })}
@@ -983,14 +1113,20 @@ export default function Dashboard() {
                             )}
                           </>
                         ) : (
-                          <p className="mt-2 text-[11px] text-slate-500">Country analytics is available on Pro plan.</p>
+                          <p className="mt-2 text-[11px] text-slate-500">
+                            Country analytics is available on Pro plan.
+                          </p>
                         )}
                       </div>
 
-                        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                      <div className="flex flex-col items-stretch gap-2 sm:items-end">
                         <div className="text-left sm:text-right">
-                          <p className="text-lg font-semibold text-slate-900">{url.clickCount}</p>
-                          <p className="font-mono text-[10px] uppercase tracking-wide text-slate-500">clicks</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {url.clickCount}
+                          </p>
+                          <p className="font-mono text-[10px] uppercase tracking-wide text-slate-500">
+                            clicks
+                          </p>
                         </div>
 
                         <button
@@ -1002,8 +1138,16 @@ export default function Dashboard() {
                         </button>
                         {qrOpen && (
                           <div className="flex flex-col items-start gap-2 sm:items-end">
-                            <div ref={qrOpen ? qrCanvasRef : undefined} className="self-start rounded-lg border border-slate-200 bg-white p-2 sm:self-end">
-                              <QRCodeCanvas value={computedShortUrl} size={88} level="M" includeMargin={false} />
+                            <div
+                              ref={qrOpen ? qrCanvasRef : undefined}
+                              className="self-start rounded-lg border border-slate-200 bg-white p-2 sm:self-end"
+                            >
+                              <QRCodeCanvas
+                                value={computedShortUrl}
+                                size={88}
+                                level="M"
+                                includeMargin={false}
+                              />
                             </div>
                             <div className="flex gap-2">
                               <button
@@ -1011,7 +1155,8 @@ export default function Dashboard() {
                                 onClick={() => {
                                   const wrapper = qrCanvasRef.current;
                                   if (!wrapper) return;
-                                  const canvas = wrapper.querySelector("canvas");
+                                  const canvas =
+                                    wrapper.querySelector("canvas");
                                   if (!canvas) return;
                                   const link = document.createElement("a");
                                   link.download = `qr-${url.shortCode}.png`;
@@ -1028,11 +1173,16 @@ export default function Dashboard() {
                                   onClick={async () => {
                                     const wrapper = qrCanvasRef.current;
                                     if (!wrapper) return;
-                                    const canvas = wrapper.querySelector("canvas");
+                                    const canvas =
+                                      wrapper.querySelector("canvas");
                                     if (!canvas) return;
                                     canvas.toBlob(async (blob) => {
                                       if (!blob) return;
-                                      const file = new File([blob], `qr-${url.shortCode}.png`, { type: "image/png" });
+                                      const file = new File(
+                                        [blob],
+                                        `qr-${url.shortCode}.png`,
+                                        { type: "image/png" },
+                                      );
                                       try {
                                         await navigator.share({
                                           title: `QR for ${computedShortUrl}`,
@@ -1094,7 +1244,9 @@ export default function Dashboard() {
           <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-900/45 px-3 py-6 sm:px-4">
             <div className="max-h-[calc(100svh-3rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_28px_70px_-40px_rgba(15,23,42,0.7)] sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-semibold text-slate-900">Profile Settings</h3>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Profile Settings
+                </h3>
                 <button
                   type="button"
                   onClick={() => setIsProfileOpen(false)}
@@ -1141,13 +1293,20 @@ export default function Dashboard() {
               </div>
 
               {isProfileLoading ? (
-                <p className="mt-4 text-sm text-slate-600">Loading profile...</p>
+                <p className="mt-4 text-sm text-slate-600">
+                  Loading profile...
+                </p>
               ) : (
                 <>
                   {profileTab === "profile" && (
-                    <form onSubmit={handleProfileSave} className="mt-4 space-y-3">
+                    <form
+                      onSubmit={handleProfileSave}
+                      className="mt-4 space-y-3"
+                    >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs text-slate-600">Use Edit to unlock profile fields.</p>
+                        <p className="text-xs text-slate-600">
+                          Use Edit to unlock profile fields.
+                        </p>
                         <div className="flex flex-wrap items-center gap-2">
                           {isProfileEditing && (
                             <button
@@ -1169,7 +1328,11 @@ export default function Dashboard() {
                             onClick={() => setIsProfileEditing((prev) => !prev)}
                             className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-700 transition hover:border-teal-600 hover:text-teal-700"
                           >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 fill-current">
+                            <svg
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5 fill-current"
+                            >
                               <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l9.06-9.06.92.92L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.25 1.24 3.75 3.75 1.25-1.25z" />
                             </svg>
                             {isProfileEditing ? "Lock" : "Edit"}
@@ -1177,7 +1340,9 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">Full name</span>
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          Full name
+                        </span>
                         <input
                           type="text"
                           value={profileFullName}
@@ -1188,7 +1353,9 @@ export default function Dashboard() {
                         />
                       </label>
                       <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">Email</span>
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          Email
+                        </span>
                         <input
                           type="email"
                           value={profileEmail}
@@ -1198,11 +1365,24 @@ export default function Dashboard() {
                           required
                         />
                       </label>
-                      {profileError && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{profileError}</div>}
-                      {profileMessage && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{profileMessage}</div>}
+                      {profileError && (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                          {profileError}
+                        </div>
+                      )}
+                      {profileMessage && (
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                          {profileMessage}
+                        </div>
+                      )}
                       <button
                         type="submit"
-                        disabled={!isProfileEditing || isProfileSaving || !profileFullName.trim() || !profileEmail.trim()}
+                        disabled={
+                          !isProfileEditing ||
+                          isProfileSaving ||
+                          !profileFullName.trim() ||
+                          !profileEmail.trim()
+                        }
                         className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isProfileSaving ? "Saving..." : "Save profile"}
@@ -1211,13 +1391,21 @@ export default function Dashboard() {
                       {profileEmailOtpChallengeId && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                           <p className="text-xs text-amber-800">
-                            Enter OTP sent to <span className="font-semibold">{profilePendingEmail || "new email"}</span> to confirm email update.
+                            Enter OTP sent to{" "}
+                            <span className="font-semibold">
+                              {profilePendingEmail || "new email"}
+                            </span>{" "}
+                            to confirm email update.
                           </p>
                           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                             <input
                               type="text"
                               value={profileEmailOtp}
-                              onChange={(e) => setProfileEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                              onChange={(e) =>
+                                setProfileEmailOtp(
+                                  e.target.value.replace(/\D/g, "").slice(0, 6),
+                                )
+                              }
                               placeholder="6-digit OTP"
                               className="w-full rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm tracking-[0.15em] outline-none transition focus:border-amber-500 sm:max-w-[220px]"
                               required
@@ -1225,10 +1413,15 @@ export default function Dashboard() {
                             <button
                               type="button"
                               onClick={() => void handleVerifyProfileEmailOtp()}
-                              disabled={isProfileOtpVerifying || profileEmailOtp.length !== 6}
+                              disabled={
+                                isProfileOtpVerifying ||
+                                profileEmailOtp.length !== 6
+                              }
                               className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {isProfileOtpVerifying ? "Verifying..." : "Verify OTP"}
+                              {isProfileOtpVerifying
+                                ? "Verifying..."
+                                : "Verify OTP"}
                             </button>
                           </div>
                         </div>
@@ -1237,9 +1430,14 @@ export default function Dashboard() {
                   )}
 
                   {profileTab === "password" && (
-                    <form onSubmit={handlePasswordSave} className="mt-4 space-y-3">
+                    <form
+                      onSubmit={handlePasswordSave}
+                      className="mt-4 space-y-3"
+                    >
                       <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">Current password</span>
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          Current password
+                        </span>
                         <div className="relative">
                           <input
                             type={showCurrentPassword ? "text" : "password"}
@@ -1250,19 +1448,33 @@ export default function Dashboard() {
                           />
                           <button
                             type="button"
-                            onClick={() => setShowCurrentPassword((prev) => !prev)}
+                            onClick={() =>
+                              setShowCurrentPassword((prev) => !prev)
+                            }
                             className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-slate-700"
-                            aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                            aria-label={
+                              showCurrentPassword
+                                ? "Hide current password"
+                                : "Show current password"
+                            }
                           >
                             {showCurrentPassword ? (
-                              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                              >
                                 <path d="M3 3l18 18" />
                                 <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
                                 <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
                                 <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
                               </svg>
                             ) : (
-                              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                              >
                                 <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
                                 <circle cx="12" cy="12" r="3" />
                               </svg>
@@ -1271,7 +1483,9 @@ export default function Dashboard() {
                         </div>
                       </label>
                       <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">New password</span>
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          New password
+                        </span>
                         <div className="relative">
                           <input
                             type={showNewPassword ? "text" : "password"}
@@ -1285,17 +1499,29 @@ export default function Dashboard() {
                             type="button"
                             onClick={() => setShowNewPassword((prev) => !prev)}
                             className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-slate-700"
-                            aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                            aria-label={
+                              showNewPassword
+                                ? "Hide new password"
+                                : "Show new password"
+                            }
                           >
                             {showNewPassword ? (
-                              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                              >
                                 <path d="M3 3l18 18" />
                                 <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
                                 <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
                                 <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
                               </svg>
                             ) : (
-                              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                              >
                                 <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
                                 <circle cx="12" cy="12" r="3" />
                               </svg>
@@ -1304,31 +1530,49 @@ export default function Dashboard() {
                         </div>
                       </label>
                       <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">Confirm new password</span>
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          Confirm new password
+                        </span>
                         <div className="relative">
                           <input
                             type={showConfirmNewPassword ? "text" : "password"}
                             value={confirmNewPassword}
-                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            onChange={(e) =>
+                              setConfirmNewPassword(e.target.value)
+                            }
                             minLength={8}
                             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-14 text-sm outline-none transition focus:border-teal-600"
                             required
                           />
                           <button
                             type="button"
-                            onClick={() => setShowConfirmNewPassword((prev) => !prev)}
+                            onClick={() =>
+                              setShowConfirmNewPassword((prev) => !prev)
+                            }
                             className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-slate-700"
-                            aria-label={showConfirmNewPassword ? "Hide confirm new password" : "Show confirm new password"}
+                            aria-label={
+                              showConfirmNewPassword
+                                ? "Hide confirm new password"
+                                : "Show confirm new password"
+                            }
                           >
                             {showConfirmNewPassword ? (
-                              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                              >
                                 <path d="M3 3l18 18" />
                                 <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
                                 <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
                                 <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
                               </svg>
                             ) : (
-                              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                              >
                                 <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
                                 <circle cx="12" cy="12" r="3" />
                               </svg>
@@ -1336,11 +1580,24 @@ export default function Dashboard() {
                           </button>
                         </div>
                       </label>
-                      {passwordError && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{passwordError}</div>}
-                      {passwordMessage && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{passwordMessage}</div>}
+                      {passwordError && (
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                          {passwordError}
+                        </div>
+                      )}
+                      {passwordMessage && (
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                          {passwordMessage}
+                        </div>
+                      )}
                       <button
                         type="submit"
-                        disabled={isPasswordSaving || !currentPassword || !newPassword || !confirmNewPassword}
+                        disabled={
+                          isPasswordSaving ||
+                          !currentPassword ||
+                          !newPassword ||
+                          !confirmNewPassword
+                        }
                         className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isPasswordSaving ? "Updating..." : "Update password"}
@@ -1350,8 +1607,12 @@ export default function Dashboard() {
 
                   {profileTab === "danger" && (
                     <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                      <p className="text-sm font-semibold text-rose-800">Delete Account</p>
-                      <p className="mt-1 text-xs text-rose-700">This permanently removes your account and all links.</p>
+                      <p className="text-sm font-semibold text-rose-800">
+                        Delete Account
+                      </p>
+                      <p className="mt-1 text-xs text-rose-700">
+                        This permanently removes your account and all links.
+                      </p>
                       <button
                         type="button"
                         onClick={openDeleteAccountConfirm}

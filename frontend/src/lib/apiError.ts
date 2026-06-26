@@ -8,13 +8,19 @@ export async function getApiErrorMessage(
     if (contentType.includes("application/json")) {
       const payload = await response.json();
       if (typeof payload?.error === "string" && payload.error.trim()) {
-        if (payload.error === "Database constraint violation" && statusMessages[response.status]) {
+        if (
+          payload.error === "Database constraint violation" &&
+          statusMessages[response.status]
+        ) {
           return statusMessages[response.status] as string;
         }
         return payload.error;
       }
       if (typeof payload?.message === "string" && payload.message.trim()) {
-        if (payload.message === "Database constraint violation" && statusMessages[response.status]) {
+        if (
+          payload.message === "Database constraint violation" &&
+          statusMessages[response.status]
+        ) {
           return statusMessages[response.status] as string;
         }
         return payload.message;

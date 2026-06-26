@@ -33,13 +33,11 @@ export default function ForgotPassword() {
       });
 
       if (!res.ok) {
-        throw new Error(await getApiErrorMessage(
-          res,
-          "Request failed",
-          {
+        throw new Error(
+          await getApiErrorMessage(res, "Request failed", {
             409: "Please wait a few seconds and try again.",
-          },
-        ));
+          }),
+        );
       }
 
       const data = (await res.json()) as ForgotPasswordResponse;
@@ -63,10 +61,21 @@ export default function ForgotPassword() {
     <div className="app-shell grid min-h-svh place-items-center px-3 py-6 text-slate-800 sm:px-4 sm:py-10">
       <main className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white/85 p-5 shadow-[0_30px_70px_-45px_rgba(15,23,42,0.7)] backdrop-blur sm:rounded-3xl sm:p-8">
         <div className="text-center">
-          <Link to="/" className="font-mono text-sm font-semibold text-teal-800">shur.click</Link>
-          <h1 className="mt-3 text-xl font-semibold text-slate-900 sm:text-2xl">Step 1: Get OTP</h1>
-          <p className="mt-1 text-sm text-slate-600">Type your account email. We will send you a 6-digit OTP.</p>
-          <p className="mt-2 text-xs text-slate-500">No password needed in this step.</p>
+          <Link
+            to="/"
+            className="font-mono text-sm font-semibold text-teal-800"
+          >
+            shur.click
+          </Link>
+          <h1 className="mt-3 text-xl font-semibold text-slate-900 sm:text-2xl">
+            Step 1: Get OTP
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Type your account email. We will send you a 6-digit OTP.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            No password needed in this step.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -84,7 +93,10 @@ export default function ForgotPassword() {
               <p>{error}</p>
               {/email does not exist/i.test(error) && (
                 <p className="mt-1">
-                  <Link to="/auth/signup" className="font-medium underline underline-offset-2">
+                  <Link
+                    to="/auth/signup"
+                    className="font-medium underline underline-offset-2"
+                  >
                     Register now
                   </Link>
                 </p>
@@ -109,7 +121,10 @@ export default function ForgotPassword() {
 
         <p className="mt-5 text-center text-sm text-slate-600">
           Back to{" "}
-          <Link to="/auth/login" className="font-medium text-teal-700 hover:text-teal-800">
+          <Link
+            to="/auth/login"
+            className="font-medium text-teal-700 hover:text-teal-800"
+          >
             Login
           </Link>
         </p>

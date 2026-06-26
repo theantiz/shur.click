@@ -46,7 +46,9 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
       {/* Last result strip */}
       {lastShortUrl && (
         <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-teal-200 bg-teal-50/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-          <code className="break-all font-mono text-sm text-teal-900 sm:text-base">{lastShortUrl}</code>
+          <code className="break-all font-mono text-sm text-teal-900 sm:text-base">
+            {lastShortUrl}
+          </code>
           <button
             type="button"
             onClick={copyToClipboard}
@@ -61,17 +63,22 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
       <div
         className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white"
         style={{
-          boxShadow: "0 4px 32px -8px rgba(15, 118, 110, 0.18), 0 0 0 1px rgba(15, 118, 110, 0.07)",
+          boxShadow:
+            "0 4px 32px -8px rgba(15, 118, 110, 0.18), 0 0 0 1px rgba(15, 118, 110, 0.07)",
         }}
       >
         {/* Decorative gradient blobs */}
         <div
           className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-20"
-          style={{ background: "radial-gradient(circle, #14b8a6 0%, transparent 70%)" }}
+          style={{
+            background: "radial-gradient(circle, #14b8a6 0%, transparent 70%)",
+          }}
         />
         <div
           className="pointer-events-none absolute -bottom-10 -left-10 h-32 w-32 rounded-full opacity-15"
-          style={{ background: "radial-gradient(circle, #0d9488 0%, transparent 70%)" }}
+          style={{
+            background: "radial-gradient(circle, #0d9488 0%, transparent 70%)",
+          }}
         />
 
         <div className="relative px-5 py-6 sm:px-8 sm:py-8">
@@ -82,7 +89,9 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
                 <span
                   key={i}
                   className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
-                  style={{ background: "linear-gradient(135deg, #0f766e, #14b8a6)" }}
+                  style={{
+                    background: "linear-gradient(135deg, #0f766e, #14b8a6)",
+                  }}
                 >
                   ✓
                 </span>
@@ -103,7 +112,8 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
             You've used your 2 free shortens
           </h3>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-            Create a free account to save these links to your dashboard, keep creating, and unlock click analytics, QR codes, and custom aliases.
+            Create a free account to save these links to your dashboard, keep
+            creating, and unlock click analytics, QR codes, and custom aliases.
           </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -115,7 +125,12 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
                 boxShadow: "0 2px 16px -4px rgba(15, 118, 110, 0.45)",
               }}
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
                 <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" />
               </svg>
               Create free account
@@ -125,8 +140,17 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
               className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
             >
               Sign in
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 opacity-60" aria-hidden="true">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-3.5 w-3.5 opacity-60"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
+                />
               </svg>
             </Link>
           </div>
@@ -172,7 +196,10 @@ export default function TerminalShortener() {
   }, []);
 
   const saveToHistory = (item: HistoryItem) => {
-    const nextHistory = [item, ...history.filter((h) => h.shortCode !== item.shortCode)].slice(0, 10);
+    const nextHistory = [
+      item,
+      ...history.filter((h) => h.shortCode !== item.shortCode),
+    ].slice(0, 10);
     setHistory(nextHistory);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
@@ -212,11 +239,15 @@ export default function TerminalShortener() {
     setShowResult(false);
 
     try {
-      const payload: { longUrl: string; customAlias?: string } = { longUrl: value };
+      const payload: { longUrl: string; customAlias?: string } = {
+        longUrl: value,
+      };
       if (alias) payload.customAlias = alias;
 
       const token = localStorage.getItem("token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
       if (token) headers.Authorization = `Bearer ${token}`;
       if (!token) headers["X-Guest-Token"] = getOrCreateGuestToken();
 
@@ -262,7 +293,9 @@ export default function TerminalShortener() {
         }
       }
     } catch (err: unknown) {
-      setError(err instanceof Error && err.message ? err.message : "Failed to shorten");
+      setError(
+        err instanceof Error && err.message ? err.message : "Failed to shorten",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -323,7 +356,9 @@ export default function TerminalShortener() {
       {showHistory && history.length > 0 && (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-mono text-xs text-slate-500">Recent links</span>
+            <span className="font-mono text-xs text-slate-500">
+              Recent links
+            </span>
             <button
               type="button"
               onClick={clearHistory}
@@ -340,8 +375,12 @@ export default function TerminalShortener() {
                 className="flex w-full flex-col gap-1 rounded-lg px-2 py-1 text-left transition hover:bg-white sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                 onClick={() => loadFromHistory(item)}
               >
-                <span className="w-full break-all font-mono text-xs text-teal-700 sm:truncate">{item.shortUrl}</span>
-                <span className="shrink-0 font-mono text-[11px] text-slate-500">{formatDate(item.createdAt)}</span>
+                <span className="w-full break-all font-mono text-xs text-teal-700 sm:truncate">
+                  {item.shortUrl}
+                </span>
+                <span className="shrink-0 font-mono text-[11px] text-slate-500">
+                  {formatDate(item.createdAt)}
+                </span>
               </button>
             ))}
           </div>
@@ -375,7 +414,9 @@ export default function TerminalShortener() {
             <input
               type="text"
               value={customCode}
-              onChange={(e) => setCustomCode(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))}
+              onChange={(e) =>
+                setCustomCode(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))
+              }
               placeholder="Custom alias (optional)"
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-teal-500"
               maxLength={20}
@@ -387,7 +428,9 @@ export default function TerminalShortener() {
           {showResult && (
             <div className="mt-5 rounded-2xl border border-teal-200 bg-teal-50/70 p-3 animate-fade-in sm:p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <code className="break-all font-mono text-sm text-teal-900 sm:text-base">{shortUrl}</code>
+                <code className="break-all font-mono text-sm text-teal-900 sm:text-base">
+                  {shortUrl}
+                </code>
                 <button
                   type="button"
                   onClick={copyToClipboard}
@@ -403,8 +446,6 @@ export default function TerminalShortener() {
               </div>
             </div>
           )}
-
-
         </>
       )}
       {/* Custom alias dialog for guests */}
@@ -421,16 +462,26 @@ export default function TerminalShortener() {
             {/* Decorative accent */}
             <div
               className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full opacity-15"
-              style={{ background: "radial-gradient(circle, #14b8a6 0%, transparent 70%)" }}
+              style={{
+                background:
+                  "radial-gradient(circle, #14b8a6 0%, transparent 70%)",
+              }}
             />
 
             <div className="relative px-6 py-6 sm:px-8 sm:py-8">
               {/* Lock icon */}
               <div
                 className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ background: "linear-gradient(135deg, #f0fdfa, #ccfbf1)" }}
+                style={{
+                  background: "linear-gradient(135deg, #f0fdfa, #ccfbf1)",
+                }}
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-teal-700" aria-hidden="true">
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-6 w-6 text-teal-700"
+                  aria-hidden="true"
+                >
                   <path
                     fillRule="evenodd"
                     d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
@@ -446,8 +497,9 @@ export default function TerminalShortener() {
                 You entered the alias{" "}
                 <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-medium text-teal-700">
                   {customCode}
-                </code>.
-                Sign up or log in to use custom aliases, or continue with a random short code.
+                </code>
+                . Sign up or log in to use custom aliases, or continue with a
+                random short code.
               </p>
 
               <div className="mt-6 flex flex-col gap-2.5">
@@ -455,11 +507,17 @@ export default function TerminalShortener() {
                   to="/auth/signup"
                   className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white transition"
                   style={{
-                    background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                    background:
+                      "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
                     boxShadow: "0 2px 12px -3px rgba(15, 118, 110, 0.4)",
                   }}
                 >
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
                     <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" />
                   </svg>
                   Sign up to use alias
@@ -476,8 +534,17 @@ export default function TerminalShortener() {
                   className="mt-1 inline-flex items-center justify-center gap-1 rounded-xl px-5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
                 >
                   Continue without alias
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 opacity-50" aria-hidden="true">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-3.5 w-3.5 opacity-50"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
               </div>

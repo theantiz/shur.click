@@ -10,7 +10,7 @@ export default function RedirectHandler() {
     const codePattern = /^[a-zA-Z0-9_-]{3,20}$/;
     const c = code?.trim() ?? "";
     if (!c || !codePattern.test(c)) {
-      navigate('/', { replace: true });
+      navigate("/", { replace: true });
       return;
     }
 

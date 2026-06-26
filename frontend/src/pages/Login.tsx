@@ -15,14 +15,18 @@ type LoginFormData = {
   password: string;
 };
 
-const DEFAULT_GOOGLE_CLIENT_ID = "249537386676-1b3dkci1si4h0p79lt3v1470jug2a2j3.apps.googleusercontent.com";
+const DEFAULT_GOOGLE_CLIENT_ID =
+  "249537386676-1b3dkci1si4h0p79lt3v1470jug2a2j3.apps.googleusercontent.com";
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error && err.message ? err.message : fallback;
 
 export default function Login() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<LoginFormData>({ email: "", password: "" });
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: "",
+    password: "",
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -30,7 +34,9 @@ export default function Login() {
   const [isGoogleScriptLoading, setIsGoogleScriptLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID).trim();
+  const googleClientId = (
+    import.meta.env.VITE_GOOGLE_CLIENT_ID || DEFAULT_GOOGLE_CLIENT_ID
+  ).trim();
 
   const handleCredentialsSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -67,9 +73,12 @@ export default function Login() {
   };
 
   useEffect(() => {
-    if (!googleClientId || !googleButtonRef.current || googleLoadAttempt === 0) return;
+    if (!googleClientId || !googleButtonRef.current || googleLoadAttempt === 0)
+      return;
 
-    const handleGoogleCredential = async (response: GoogleCredentialResponse) => {
+    const handleGoogleCredential = async (
+      response: GoogleCredentialResponse,
+    ) => {
       const idToken = response.credential;
       if (!idToken) {
         setError("Google login failed");
@@ -108,7 +117,10 @@ export default function Login() {
       const container = googleButtonRef.current;
       if (!container || !window.google?.accounts?.id) return;
       container.innerHTML = "";
-      const buttonWidth = Math.min(360, Math.max(240, Math.floor(container.clientWidth || 320)));
+      const buttonWidth = Math.min(
+        360,
+        Math.max(240, Math.floor(container.clientWidth || 320)),
+      );
       initializeGoogleIdentity(googleClientId, handleGoogleCredential);
       window.google.accounts.id.renderButton(container, {
         type: "standard",
@@ -133,7 +145,9 @@ export default function Login() {
         .catch(() => {
           if (!isMounted) return;
           setIsGoogleScriptLoading(false);
-          setError("Failed to load Google login. Use email and password instead.");
+          setError(
+            "Failed to load Google login. Use email and password instead.",
+          );
         });
     }
 
@@ -151,7 +165,10 @@ export default function Login() {
       footer={
         <>
           New here?{" "}
-          <Link to="/auth/signup" className="font-medium text-teal-700 hover:text-teal-800">
+          <Link
+            to="/auth/signup"
+            className="font-medium text-teal-700 hover:text-teal-800"
+          >
             Create account
           </Link>
         </>
@@ -159,7 +176,9 @@ export default function Login() {
     >
       <form onSubmit={handleCredentialsSubmit} className="space-y-4">
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Email</span>
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Email
+          </span>
           <input
             type="email"
             name="email"
@@ -174,7 +193,10 @@ export default function Login() {
         <label className="block">
           <div className="mb-1 flex items-center justify-between">
             <span className="text-xs font-medium text-slate-600">Password</span>
-            <Link to="/forgot-password" className="text-xs font-medium text-teal-700 hover:text-teal-800">
+            <Link
+              to="/forgot-password"
+              className="text-xs font-medium text-teal-700 hover:text-teal-800"
+            >
               Forgot password?
             </Link>
           </div>
@@ -195,14 +217,22 @@ export default function Login() {
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                >
                   <path d="M3 3l18 18" />
                   <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
                   <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
                   <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-none stroke-current stroke-[1.8]">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
+                >
                   <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -211,7 +241,11 @@ export default function Login() {
           </div>
         </label>
 
-        {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"
@@ -223,11 +257,17 @@ export default function Login() {
 
         <div className="my-1 flex items-center gap-3">
           <div className="h-px flex-1 bg-slate-200" />
-          <span className="text-xs uppercase tracking-[0.08em] text-slate-500">or</span>
+          <span className="text-xs uppercase tracking-[0.08em] text-slate-500">
+            or
+          </span>
           <div className="h-px flex-1 bg-slate-200" />
         </div>
         <div className="flex min-h-11 w-full flex-col items-center justify-center gap-2">
-          {isGoogleLoading && <span className="text-xs text-slate-500">Signing in with Google...</span>}
+          {isGoogleLoading && (
+            <span className="text-xs text-slate-500">
+              Signing in with Google...
+            </span>
+          )}
           {googleLoadAttempt === 0 ? (
             <button
               type="button"
@@ -238,8 +278,15 @@ export default function Login() {
             </button>
           ) : (
             <>
-              {isGoogleScriptLoading && <span className="text-xs text-slate-500">Loading Google sign-in...</span>}
-              <div ref={googleButtonRef} className={`google-auth-button w-full max-w-[360px] ${isGoogleLoading ? "hidden" : ""}`} />
+              {isGoogleScriptLoading && (
+                <span className="text-xs text-slate-500">
+                  Loading Google sign-in...
+                </span>
+              )}
+              <div
+                ref={googleButtonRef}
+                className={`google-auth-button w-full max-w-[360px] ${isGoogleLoading ? "hidden" : ""}`}
+              />
             </>
           )}
         </div>

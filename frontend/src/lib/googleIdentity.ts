@@ -22,17 +22,25 @@ declare global {
 
 let scriptPromise: Promise<void> | null = null;
 let initializedClientId: string | null = null;
-let activeCredentialCallback: ((response: GoogleCredentialResponse) => void) | null = null;
+let activeCredentialCallback:
+  | ((response: GoogleCredentialResponse) => void)
+  | null = null;
 
 export function loadGoogleIdentityScript(): Promise<void> {
   if (window.google?.accounts?.id) return Promise.resolve();
   if (scriptPromise) return scriptPromise;
 
   scriptPromise = new Promise((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[src="https://accounts.google.com/gsi/client"]',
+    );
     if (existingScript) {
       existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener("error", () => reject(new Error("Google sign-in script failed to load")), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => reject(new Error("Google sign-in script failed to load")),
+        { once: true },
+      );
       return;
     }
 
@@ -41,7 +49,8 @@ export function loadGoogleIdentityScript(): Promise<void> {
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Google sign-in script failed to load"));
+    script.onerror = () =>
+      reject(new Error("Google sign-in script failed to load"));
     document.body.appendChild(script);
   });
 
@@ -50,7 +59,7 @@ export function loadGoogleIdentityScript(): Promise<void> {
 
 export function initializeGoogleIdentity(
   clientId: string,
-  callback: (response: GoogleCredentialResponse) => void
+  callback: (response: GoogleCredentialResponse) => void,
 ) {
   activeCredentialCallback = callback;
 

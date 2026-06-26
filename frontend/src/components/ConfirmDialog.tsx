@@ -32,7 +32,9 @@ export default function ConfirmDialog({
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-900/45 px-3 py-6 sm:px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_28px_70px_-40px_rgba(15,23,42,0.7)] sm:p-5">
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <p className="mt-2 whitespace-pre-line break-words text-sm text-slate-600">{description}</p>
+        <p className="mt-2 whitespace-pre-line break-words text-sm text-slate-600">
+          {description}
+        </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"

@@ -14,9 +14,7 @@ function detectDefaultBaseUrl(): string {
 
   // localhost / 127.x / ::1 -> dev API
   const isLocalhost =
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1";
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 
   if (isLocalhost) {
     return DEFAULT_DEV_API_BASE_URL;

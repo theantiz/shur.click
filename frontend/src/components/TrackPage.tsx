@@ -21,9 +21,10 @@ function extractCode(input: string) {
 
   if (codePattern.test(value)) return value;
 
-  const maybeUrl = value.startsWith("http://") || value.startsWith("https://")
-    ? value
-    : `https://${value}`;
+  const maybeUrl =
+    value.startsWith("http://") || value.startsWith("https://")
+      ? value
+      : `https://${value}`;
 
   try {
     const parsed = new URL(maybeUrl);
@@ -56,21 +57,26 @@ export default function TrackPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(apiUrl(`/api/urls/${encodeURIComponent(code)}/stats`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        apiUrl(`/api/urls/${encodeURIComponent(code)}/stats`),
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (!res.ok) {
-        throw new Error(await getApiErrorMessage(
-          res,
-          "Unable to fetch link stats right now.",
-          {
-            401: "Please login to track links.",
-            400: "Please enter a valid short URL or code.",
-            404: "We couldn't find this short URL. It may be invalid, deleted, or never created.",
-            429: "Too many requests. Please wait and try again.",
-            500: "Server error while fetching stats. Please try again.",
-          },
-        ));
+        throw new Error(
+          await getApiErrorMessage(
+            res,
+            "Unable to fetch link stats right now.",
+            {
+              401: "Please login to track links.",
+              400: "Please enter a valid short URL or code.",
+              404: "We couldn't find this short URL. It may be invalid, deleted, or never created.",
+              429: "Too many requests. Please wait and try again.",
+              500: "Server error while fetching stats. Please try again.",
+            },
+          ),
+        );
       }
       const data = (await res.json()) as StatsResponse;
       setStats(data);
@@ -89,7 +95,9 @@ export default function TrackPage() {
     const code = extractCode(urlInput);
     if (!code) {
       setStats(null);
-      setError("Please enter a valid short URL or code (example: shur.click/abc123).");
+      setError(
+        "Please enter a valid short URL or code (example: shur.click/abc123).",
+      );
       return;
     }
 
@@ -116,19 +124,32 @@ export default function TrackPage() {
     <div className="app-shell min-h-screen text-slate-800">
       <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-3 pb-0 pt-6 sm:px-6 sm:pt-8">
         <header className="flex items-center justify-between">
-          <Link to="/" className="font-mono text-sm font-semibold text-teal-800">
+          <Link
+            to="/"
+            className="font-mono text-sm font-semibold text-teal-800"
+          >
             shur.click
           </Link>
-          <Link to="/" className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700">
+          <Link
+            to="/"
+            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700"
+          >
             Home
           </Link>
         </header>
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-[0_28px_70px_-48px_rgba(15,23,42,0.7)] backdrop-blur sm:mt-8 sm:p-7">
-          <h1 className="text-2xl font-semibold text-slate-900 sm:text-4xl">Track link performance</h1>
-          <p className="mt-2 text-sm text-slate-600">Paste a short link or code to fetch live stats.</p>
+          <h1 className="text-2xl font-semibold text-slate-900 sm:text-4xl">
+            Track link performance
+          </h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Paste a short link or code to fetch live stats.
+          </p>
 
-          <form onSubmit={handleTrack} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <form
+            onSubmit={handleTrack}
+            className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]"
+          >
             <input
               type="text"
               value={urlInput}
@@ -152,23 +173,33 @@ export default function TrackPage() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2 animate-fade-in">
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <p className="font-mono text-xs text-slate-500">ORIGINAL URL</p>
-                <p className="mt-1 break-all text-sm text-slate-800">{stats.longUrl}</p>
+                <p className="mt-1 break-all text-sm text-slate-800">
+                  {stats.longUrl}
+                </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <p className="font-mono text-xs text-slate-500">SHORT CODE</p>
-                <p className="mt-1 font-mono text-sm text-teal-700">{stats.shortCode}</p>
+                <p className="mt-1 font-mono text-sm text-teal-700">
+                  {stats.shortCode}
+                </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <p className="font-mono text-xs text-slate-500">TOTAL CLICKS</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.clickCount.toLocaleString()}</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">
+                  {stats.clickCount.toLocaleString()}
+                </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <p className="font-mono text-xs text-slate-500">LAST CLICKED</p>
-                <p className="mt-1 text-sm text-slate-700">{formatDate(stats.lastAccessedAt)}</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {formatDate(stats.lastAccessedAt)}
+                </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
                 <p className="font-mono text-xs text-slate-500">CREATED</p>
-                <p className="mt-1 text-sm text-slate-700">{formatDate(stats.createdAt)}</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {formatDate(stats.createdAt)}
+                </p>
               </div>
             </div>
           )}

@@ -30,7 +30,8 @@ export default function ResetPassword() {
       setError("Missing reset challenge. Request OTP again.");
       return;
     }
-    const otp = sessionStorage.getItem(`${RESET_OTP_KEY_PREFIX}${challengeId}`) || "";
+    const otp =
+      sessionStorage.getItem(`${RESET_OTP_KEY_PREFIX}${challengeId}`) || "";
     if (otp.length !== 6) {
       setError("Please verify OTP first.");
       return;
@@ -68,8 +69,15 @@ export default function ResetPassword() {
     <div className="app-shell grid min-h-svh place-items-center px-3 py-6 text-slate-800 sm:px-4 sm:py-10">
       <main className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white/85 p-5 shadow-[0_30px_70px_-45px_rgba(15,23,42,0.7)] backdrop-blur sm:rounded-3xl sm:p-8">
         <div className="text-center">
-          <Link to="/" className="font-mono text-sm font-semibold text-teal-800">shur.click</Link>
-          <h1 className="mt-3 text-xl font-semibold text-slate-900 sm:text-2xl">Reset password</h1>
+          <Link
+            to="/"
+            className="font-mono text-sm font-semibold text-teal-800"
+          >
+            shur.click
+          </Link>
+          <h1 className="mt-3 text-xl font-semibold text-slate-900 sm:text-2xl">
+            Reset password
+          </h1>
           <p className="mt-1 text-sm text-slate-600">Set your new password.</p>
         </div>
 
@@ -93,7 +101,11 @@ export default function ResetPassword() {
             required
           />
 
-          {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          )}
           <button
             type="submit"
             disabled={isLoading || !password || !confirmPassword}
@@ -105,7 +117,10 @@ export default function ResetPassword() {
 
         <p className="mt-5 text-center text-sm text-slate-600">
           Need OTP again?{" "}
-          <Link to="/forgot-password" className="font-medium text-teal-700 hover:text-teal-800">
+          <Link
+            to="/forgot-password"
+            className="font-medium text-teal-700 hover:text-teal-800"
+          >
             Request again
           </Link>
         </p>
