@@ -13,6 +13,8 @@ This repository is public. Do not commit real secrets, private database URLs, AP
 - Click counting and last-accessed timestamps.
 - Country click analytics for Pro users.
 - Dashboard for creating, listing, copying, deleting, and tracking links.
+- Branded short links with custom domain support so users can use their own domains for marketing and trust.
+- Per-link domain switching between the default `shur.click` host and any verified custom domain, without recreating links.
 - Two guest-created links before signup; those links are moved into the user's account after signup or sign-in.
 - QR code display for generated links with download as PNG and native share via the Web Share API.
 - JWT authentication.
@@ -35,7 +37,7 @@ Current backend constants:
 - Free authenticated-user links: `5`
 - Pro: unlimited link creation while Pro is active
 - Pro duration after successful payment verification: `30` days
-- Displayed monthly Pro price: `$2.00`
+- Displayed monthly Pro price: `$5.00`
 
 Razorpay charges are configured in subunits through `RAZORPAY_PRO_AMOUNT_SUBUNITS`. Keep pricing, currency, and frontend display aligned before production changes.
 
