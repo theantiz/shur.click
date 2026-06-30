@@ -54,7 +54,7 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
             onClick={copyToClipboard}
             className="w-full rounded-full border border-teal-500/30 bg-white px-4 py-2 text-xs font-semibold text-teal-800 transition hover:border-teal-700 sm:w-auto sm:py-1.5"
           >
-            {copySuccess ? "Copied ✓" : "Copy"}
+            {copySuccess ? "Copied" : "Copy"}
           </button>
         </div>
       )}
@@ -93,7 +93,7 @@ function GuestLimitGate({ lastShortUrl }: { lastShortUrl: string }) {
                     background: "linear-gradient(135deg, #0f766e, #14b8a6)",
                   }}
                 >
-                  ✓
+                  2
                 </span>
               ))}
               <span

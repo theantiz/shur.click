@@ -1059,7 +1059,7 @@ export default function Dashboard() {
 
 
   return (
-    <div style={{ minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div className="app-shell" style={{ minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* ── TOP NAV ── */}
       <header style={{ position: "sticky", top: 0, zIndex: 40, borderBottom: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
@@ -1067,7 +1067,13 @@ export default function Dashboard() {
           {/* Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#0f766e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "ui-monospace, monospace" }}>s.</div>
+              <img
+                src="/android-chrome-512x512.png"
+                alt="shur.click"
+                width={32}
+                height={32}
+                style={{ width: 32, height: 32, borderRadius: 8, display: "block" }}
+              />
               <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 15, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>shur.click</span>
             </Link>
             <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#0f766e", background: "rgba(20,184,166,0.12)", border: "1px solid rgba(20,184,166,0.25)", borderRadius: 6, padding: "2px 8px" }}>Dashboard</span>
@@ -1102,7 +1108,7 @@ export default function Dashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
           {[
             { label: "Total Links", value: urls.length, color: "#0f766e", glow: "rgba(20,184,166,0.1)" },
-            { label: "Total Clicks", value: totalClicks, color: "#4f46e5", glow: "rgba(99,102,241,0.1)" },
+            { label: "Total Clicks", value: totalClicks, color: "#0d9488", glow: "rgba(20,184,166,0.1)" },
             { label: "Avg / Link", value: urls.length ? Math.round(totalClicks / urls.length) : 0, color: "#d97706", glow: "rgba(245,158,11,0.1)" },
           ].map(card => (
             <div key={card.label} style={{ borderRadius: 16, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: "20px 24px", position: "relative", overflow: "hidden", transition: "transform 0.2s, border-color 0.2s, box-shadow 0.2s", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}
@@ -1174,7 +1180,7 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => handleShortLinkDomainModeChange("custom")}
                     disabled={!customShortLinkBase}
-                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: shortLinkDomainMode === "custom" && customShortLinkBase ? "#fff" : "transparent", color: shortLinkDomainMode === "custom" && customShortLinkBase ? "#4f46e5" : !customShortLinkBase ? "#94a3b8" : "#64748b", fontSize: 11, fontWeight: 600, fontFamily: "ui-monospace, monospace", cursor: !customShortLinkBase ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: shortLinkDomainMode === "custom" && customShortLinkBase ? "0 1px 3px rgba(0,0,0,0.1)" : "none", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: shortLinkDomainMode === "custom" && customShortLinkBase ? "#fff" : "transparent", color: shortLinkDomainMode === "custom" && customShortLinkBase ? "#0f766e" : !customShortLinkBase ? "#94a3b8" : "#64748b", fontSize: 11, fontWeight: 600, fontFamily: "ui-monospace, monospace", cursor: !customShortLinkBase ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: shortLinkDomainMode === "custom" && customShortLinkBase ? "0 1px 3px rgba(0,0,0,0.1)" : "none", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                     title={verifiedDomain || "Custom domain"}
                   >{verifiedDomain ? (verifiedDomain.length > 18 ? verifiedDomain.slice(0, 16) + "…" : verifiedDomain) : "Custom"}</button>
                 </div>
@@ -1252,13 +1258,13 @@ export default function Dashboard() {
                         onChange={e => setNewDomain(e.target.value)}
                         placeholder="links.yourbrand.com"
                         style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#0f172a", fontSize: 12, outline: "none" }}
-                        onFocus={e => (e.target.style.borderColor = "#6366f1")}
+                        onFocus={e => (e.target.style.borderColor = "#14b8a6")}
                         onBlur={e => (e.target.style.borderColor = "rgba(15,23,42,0.1)")}
                       />
                       <button
                         type="submit"
                         disabled={!newDomain.trim()}
-                        style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontSize: 11, fontWeight: 600, cursor: !newDomain.trim() ? "not-allowed" : "pointer", opacity: !newDomain.trim() ? 0.5 : 1 }}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#0f766e", color: "#fff", fontSize: 11, fontWeight: 600, cursor: !newDomain.trim() ? "not-allowed" : "pointer", opacity: !newDomain.trim() ? 0.5 : 1 }}
                       >Add</button>
                     </form>
                   )}
@@ -1343,7 +1349,7 @@ export default function Dashboard() {
                           >{computedShortUrl}</a>
                           {/* Domain badge */}
                           {!isShurLink && (
-                            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", color: "#4f46e5", fontFamily: "ui-monospace, monospace", flexShrink: 0 }}>custom</span>
+                            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.2)", color: "#0f766e", fontFamily: "ui-monospace, monospace", flexShrink: 0 }}>custom</span>
                           )}
                         </div>
 
@@ -1388,7 +1394,7 @@ export default function Dashboard() {
                                 setGeoOpenId(url.id);
                                 if (geoLoadingCode !== url.shortCode) void fetchGeoAnalytics(url.shortCode);
                               }}
-                              style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${geoOpen ? "rgba(99,102,241,0.3)" : "rgba(15,23,42,0.1)"}`, background: geoOpen ? "rgba(99,102,241,0.1)" : "#fff", color: geoOpen ? "#4f46e5" : "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${geoOpen ? "rgba(20,184,166,0.3)" : "rgba(15,23,42,0.1)"}`, background: geoOpen ? "rgba(20,184,166,0.1)" : "#fff", color: geoOpen ? "#0f766e" : "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
                               onMouseEnter={e => { if (!geoOpen) e.currentTarget.style.background = "rgba(15,23,42,0.02)"; }}
                               onMouseLeave={e => { if (!geoOpen) e.currentTarget.style.background = "#fff"; }}
                             >{geoOpen ? "Hide analytics" : "Analytics"}</button>
@@ -1407,7 +1413,7 @@ export default function Dashboard() {
                               onClick={() => void handleSwitchToCustom(url)}
                               disabled={isSwitchingToCustom}
                               title={`Use ${verifiedDomain}`}
-                              style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.05)", color: "#4f46e5", fontSize: 11, fontWeight: 600, cursor: isSwitchingToCustom ? "not-allowed" : "pointer", opacity: isSwitchingToCustom ? 0.6 : 1, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(20,184,166,0.3)", background: "rgba(20,184,166,0.05)", color: "#0f766e", fontSize: 11, fontWeight: 600, cursor: isSwitchingToCustom ? "not-allowed" : "pointer", opacity: isSwitchingToCustom ? 0.6 : 1, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                             >{isSwitchingToCustom ? "Switching…" : `Use custom`}</button>
                           )}
 
@@ -1421,7 +1427,7 @@ export default function Dashboard() {
 
                           {/* Free plan analytics notice */}
                           {!billing?.proActive && (
-                            <span style={{ fontSize: 10, color: "#64748b", padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.05)", background: "rgba(15,23,42,0.02)" }}>Analytics on Pro ⚡</span>
+                            <span style={{ fontSize: 10, color: "#64748b", padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.05)", background: "rgba(15,23,42,0.02)" }}>Analytics on Pro</span>
                           )}
                         </div>
 
@@ -1470,7 +1476,7 @@ export default function Dashboard() {
 
                         {/* Geo Analytics Panel */}
                         {geoOpen && billing?.proActive && (
-                          <div style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                          <div style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(20,184,166,0.15)" }}>
                             {geoLoading && <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Loading analytics…</p>}
                             {geoError && <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>{geoError}</p>}
                             {!geoLoading && !geoError && geoData && (
