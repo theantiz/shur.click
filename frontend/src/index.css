@@ -148,6 +148,221 @@ img {
   animation: beta-glow 1.8s ease-in-out infinite;
 }
 
+@media (max-width: 1024px) {
+  .dashboard-nav-inner {
+    padding-inline: 20px !important;
+  }
+
+  .dashboard-main {
+    padding: 28px 20px 56px !important;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-stat-card,
+  .dashboard-panel {
+    padding: 18px !important;
+  }
+
+  .dashboard-top-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-create-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 160px) !important;
+  }
+
+  .dashboard-primary-action {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-nav-inner {
+    min-height: 60px !important;
+    height: auto !important;
+    padding: 10px 14px !important;
+    gap: 10px !important;
+  }
+
+  .dashboard-brand-row,
+  .dashboard-nav-actions {
+    min-width: 0 !important;
+  }
+
+  .dashboard-brand-row {
+    gap: 8px !important;
+  }
+
+  .dashboard-brand-text {
+    max-width: 116px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .dashboard-nav-pill {
+    display: none !important;
+  }
+
+  .dashboard-nav-actions {
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .dashboard-logout-button {
+    padding-inline: 10px !important;
+  }
+
+  .dashboard-main {
+    padding: 18px 12px 44px !important;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: 1fr !important;
+    margin-bottom: 16px !important;
+  }
+
+  .dashboard-stat-card {
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .dashboard-stat-card p:nth-of-type(2) {
+    font-size: 30px !important;
+  }
+
+  .dashboard-top-grid {
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .dashboard-panel,
+  .dashboard-list-panel {
+    border-radius: 14px !important;
+  }
+
+  .dashboard-panel {
+    padding: 16px !important;
+  }
+
+  .dashboard-create-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-primary-action,
+  .dashboard-inline-form button {
+    width: 100% !important;
+  }
+
+  .dashboard-domain-toggle,
+  .dashboard-inline-form,
+  .dashboard-domain-row,
+  .dashboard-profile-edit-row,
+  .dashboard-otp-row {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .dashboard-inline-form {
+    gap: 8px !important;
+  }
+
+  .dashboard-domain-actions,
+  .dashboard-profile-actions,
+  .dashboard-qr-actions {
+    flex-wrap: wrap !important;
+  }
+
+  .dashboard-domain-actions button,
+  .dashboard-profile-actions button,
+  .dashboard-qr-actions button {
+    flex: 1 1 120px !important;
+  }
+
+  .dashboard-list-header,
+  .dashboard-link-card {
+    padding-inline: 16px !important;
+  }
+
+  .dashboard-link-card {
+    padding-block: 16px !important;
+  }
+
+  .dashboard-link-layout {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-short-url,
+  .dashboard-long-url,
+  .dashboard-qr-url {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+
+  .dashboard-link-actions > button,
+  .dashboard-link-actions > span {
+    flex: 1 1 128px !important;
+    text-align: center !important;
+  }
+
+  .dashboard-qr-panel {
+    align-items: flex-start !important;
+    padding: 12px !important;
+  }
+
+  .dashboard-qr-panel > div:last-child {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .dashboard-analytics-summary {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+  }
+
+  .dashboard-click-badge {
+    display: flex !important;
+    align-items: baseline !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    text-align: left !important;
+    border-top: 1px solid rgba(15, 23, 42, 0.06) !important;
+    padding-top: 10px !important;
+  }
+
+  .dashboard-profile-modal {
+    max-height: calc(100svh - 24px) !important;
+    padding: 18px !important;
+    border-radius: 14px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .dashboard-nav-inner {
+    padding-inline: 10px !important;
+  }
+
+  .dashboard-brand-text {
+    display: none !important;
+  }
+
+  .dashboard-main {
+    padding-inline: 10px !important;
+  }
+
+  .dashboard-list-header {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+}
+
 @keyframes beta-glow {
   0%,
   100% {

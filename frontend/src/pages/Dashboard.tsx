@@ -1059,22 +1059,28 @@ export default function Dashboard() {
 
 
   return (
-    <div style={{ minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div className="app-shell" style={{ minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* ── TOP NAV ── */}
       <header style={{ position: "sticky", top: 0, zIndex: 40, borderBottom: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", height: 60 }}>
+        <div className="dashboard-nav-inner" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", height: 60 }}>
           {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="dashboard-brand-row" style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#0f766e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "ui-monospace, monospace" }}>s.</div>
-              <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 15, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>shur.click</span>
+              <img
+                src="/android-chrome-512x512.png"
+                alt="shur.click"
+                width={32}
+                height={32}
+                style={{ width: 32, height: 32, borderRadius: 8, display: "block" }}
+              />
+              <span className="dashboard-brand-text" style={{ fontFamily: "ui-monospace, monospace", fontSize: 15, fontWeight: 700, color: "#0f172a", letterSpacing: 0 }}>shur.click</span>
             </Link>
-            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#0f766e", background: "rgba(20,184,166,0.12)", border: "1px solid rgba(20,184,166,0.25)", borderRadius: 6, padding: "2px 8px" }}>Dashboard</span>
+            <span className="dashboard-nav-pill" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#0f766e", background: "rgba(20,184,166,0.12)", border: "1px solid rgba(20,184,166,0.25)", borderRadius: 6, padding: "2px 8px" }}>Dashboard</span>
           </div>
 
           {/* Right side */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="dashboard-nav-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {billing?.proActive && (
               <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", background: "#d97706", color: "#fff", borderRadius: 6, padding: "3px 10px" }}>PRO</span>
             )}
@@ -1088,6 +1094,7 @@ export default function Dashboard() {
             >{(profileFullName || localStorage.getItem("userName") || "U").trim().charAt(0).toUpperCase()}</button>
             <button
               onClick={handleLogout}
+              className="dashboard-logout-button"
               style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#475569", fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.15s" }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(15,23,42,0.04)"; (e.currentTarget as HTMLButtonElement).style.color = "#0f172a"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; (e.currentTarget as HTMLButtonElement).style.color = "#475569"; }}
@@ -1096,16 +1103,16 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 64px" }}>
+      <main className="dashboard-main" style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 64px" }}>
 
         {/* ── STAT CARDS ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+        <div className="dashboard-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
           {[
             { label: "Total Links", value: urls.length, color: "#0f766e", glow: "rgba(20,184,166,0.1)" },
-            { label: "Total Clicks", value: totalClicks, color: "#4f46e5", glow: "rgba(99,102,241,0.1)" },
+            { label: "Total Clicks", value: totalClicks, color: "#0d9488", glow: "rgba(20,184,166,0.1)" },
             { label: "Avg / Link", value: urls.length ? Math.round(totalClicks / urls.length) : 0, color: "#d97706", glow: "rgba(245,158,11,0.1)" },
           ].map(card => (
-            <div key={card.label} style={{ borderRadius: 16, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: "20px 24px", position: "relative", overflow: "hidden", transition: "transform 0.2s, border-color 0.2s, box-shadow 0.2s", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}
+            <div className="dashboard-stat-card" key={card.label} style={{ borderRadius: 16, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: "20px 24px", position: "relative", overflow: "hidden", transition: "transform 0.2s, border-color 0.2s, box-shadow 0.2s", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}
               onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = card.color; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 16px rgba(0,0,0,0.04)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(15,23,42,0.08)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.02)"; }}
             >
@@ -1118,10 +1125,10 @@ export default function Dashboard() {
         </div>
 
         {/* ── TOP PANEL: CREATE + PLAN ── */}
-        <div style={{ display: "grid", gridTemplateColumns: billing ? "1fr 340px" : "1fr", gap: 16, marginBottom: 24 }}>
+        <div className="dashboard-top-grid" style={{ display: "grid", gridTemplateColumns: billing ? "minmax(0, 1fr) minmax(280px, 340px)" : "1fr", gap: 16, marginBottom: 24 }}>
 
           {/* Create Link */}
-          <div style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: 24, boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+          <div className="dashboard-panel" style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: 24, boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <div>
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0, marginBottom: 2 }}>Shorten a link</h2>
@@ -1134,7 +1141,7 @@ export default function Dashboard() {
             )}
 
             <form onSubmit={handleCreateUrl}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 160px auto", gap: 10, marginBottom: 14 }}>
+              <div className="dashboard-create-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(120px, 160px) auto", gap: 10, marginBottom: 14 }}>
                 <input
                   type="url"
                   value={longUrl}
@@ -1157,12 +1164,13 @@ export default function Dashboard() {
                 <button
                   type="submit"
                   disabled={isCreating || !longUrl.trim()}
+                  className="dashboard-primary-action"
                   style={{ padding: "11px 22px", borderRadius: 10, border: "none", background: isCreating || !longUrl.trim() ? "rgba(20,184,166,0.3)" : "#0f766e", color: "#fff", fontSize: 13, fontWeight: 600, cursor: isCreating || !longUrl.trim() ? "not-allowed" : "pointer", transition: "all 0.15s", whiteSpace: "nowrap" }}
                 >{isCreating ? "Creating…" : "Shorten →"}</button>
               </div>
 
               {/* Domain toggle */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "rgba(15,23,42,0.02)", border: "1px solid rgba(15,23,42,0.06)" }}>
+              <div className="dashboard-domain-toggle" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "rgba(15,23,42,0.02)", border: "1px solid rgba(15,23,42,0.06)" }}>
                 <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>Short link domain</span>
                 <div style={{ display: "flex", background: "rgba(15,23,42,0.06)", borderRadius: 8, padding: 3, gap: 2 }}>
                   <button
@@ -1174,7 +1182,7 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => handleShortLinkDomainModeChange("custom")}
                     disabled={!customShortLinkBase}
-                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: shortLinkDomainMode === "custom" && customShortLinkBase ? "#fff" : "transparent", color: shortLinkDomainMode === "custom" && customShortLinkBase ? "#4f46e5" : !customShortLinkBase ? "#94a3b8" : "#64748b", fontSize: 11, fontWeight: 600, fontFamily: "ui-monospace, monospace", cursor: !customShortLinkBase ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: shortLinkDomainMode === "custom" && customShortLinkBase ? "0 1px 3px rgba(0,0,0,0.1)" : "none", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: shortLinkDomainMode === "custom" && customShortLinkBase ? "#fff" : "transparent", color: shortLinkDomainMode === "custom" && customShortLinkBase ? "#0f766e" : !customShortLinkBase ? "#94a3b8" : "#64748b", fontSize: 11, fontWeight: 600, fontFamily: "ui-monospace, monospace", cursor: !customShortLinkBase ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: shortLinkDomainMode === "custom" && customShortLinkBase ? "0 1px 3px rgba(0,0,0,0.1)" : "none", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                     title={verifiedDomain || "Custom domain"}
                   >{verifiedDomain ? (verifiedDomain.length > 18 ? verifiedDomain.slice(0, 16) + "…" : verifiedDomain) : "Custom"}</button>
                 </div>
@@ -1184,7 +1192,7 @@ export default function Dashboard() {
 
           {/* Plan & Domains Panel */}
           {billing && (
-            <div style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: 24, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+            <div className="dashboard-panel" style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: 24, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
               {/* Plan header */}
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
                 <div>
@@ -1218,7 +1226,7 @@ export default function Dashboard() {
                     style={{ width: "100%", padding: "11px 0", borderRadius: 10, border: "none", background: isUpgrading ? "rgba(245,158,11,0.3)" : "#d97706", color: "#fff", fontSize: 13, fontWeight: 700, cursor: isUpgrading ? "not-allowed" : "pointer", transition: "all 0.15s", marginBottom: 12 }}
                   >{isUpgrading ? "Opening checkout…" : `Upgrade to Pro — $${billing.proMonthlyPriceUsd}/mo`}</button>
                   {/* Promo */}
-                  <form onSubmit={handleRedeemPromo} style={{ display: "flex", gap: 8 }}>
+                  <form className="dashboard-inline-form" onSubmit={handleRedeemPromo} style={{ display: "flex", gap: 8 }}>
                     <input
                       type="text"
                       value={promoCode}
@@ -1245,20 +1253,20 @@ export default function Dashboard() {
                 <div style={{ borderTop: "1px solid rgba(15,23,42,0.06)", paddingTop: 16, marginTop: 4 }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Custom Domain</p>
                   {domains.length === 0 && (
-                    <form onSubmit={handleAddDomain} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <form className="dashboard-inline-form" onSubmit={handleAddDomain} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                       <input
                         type="text"
                         value={newDomain}
                         onChange={e => setNewDomain(e.target.value)}
                         placeholder="links.yourbrand.com"
                         style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#0f172a", fontSize: 12, outline: "none" }}
-                        onFocus={e => (e.target.style.borderColor = "#6366f1")}
+                        onFocus={e => (e.target.style.borderColor = "#14b8a6")}
                         onBlur={e => (e.target.style.borderColor = "rgba(15,23,42,0.1)")}
                       />
                       <button
                         type="submit"
                         disabled={!newDomain.trim()}
-                        style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontSize: 11, fontWeight: 600, cursor: !newDomain.trim() ? "not-allowed" : "pointer", opacity: !newDomain.trim() ? 0.5 : 1 }}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#0f766e", color: "#fff", fontSize: 11, fontWeight: 600, cursor: !newDomain.trim() ? "not-allowed" : "pointer", opacity: !newDomain.trim() ? 0.5 : 1 }}
                       >Add</button>
                     </form>
                   )}
@@ -1268,12 +1276,12 @@ export default function Dashboard() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {domains.map(d => (
                       <div key={d.id} style={{ borderRadius: 10, border: "1px solid rgba(15,23,42,0.08)", background: "#fff", padding: "10px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <div className="dashboard-domain-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                           <div style={{ minWidth: 0 }}>
                             <p style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, color: "#0f172a", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{d.domain}</p>
                             <span style={{ display: "inline-block", marginTop: 4, padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600, background: d.status === "VERIFIED" ? "rgba(16,185,129,0.1)" : d.status === "FAILED" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)", color: d.status === "VERIFIED" ? "#059669" : d.status === "FAILED" ? "#dc2626" : "#d97706", border: d.status === "VERIFIED" ? "1px solid rgba(16,185,129,0.2)" : d.status === "FAILED" ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(245,158,11,0.2)" }}>{d.status}</span>
                           </div>
-                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <div className="dashboard-domain-actions" style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                             {d.status !== "VERIFIED" && (
                               <button onClick={() => void handleVerifyDomain(d.id)} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(20,184,166,0.3)", background: "rgba(20,184,166,0.1)", color: "#0f766e", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Verify</button>
                             )}
@@ -1296,9 +1304,9 @@ export default function Dashboard() {
         </div>
 
         {/* ── LINKS LIST ── */}
-        <div style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+        <div className="dashboard-list-panel" style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
           {/* List header */}
-          <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+          <div className="dashboard-list-header" style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Your Links</h2>
             <span style={{ fontSize: 11, fontFamily: "ui-monospace, monospace", color: "#64748b", background: "rgba(15,23,42,0.05)", padding: "3px 10px", borderRadius: 6 }}>{urls.length} total</span>
           </div>
@@ -1326,16 +1334,18 @@ export default function Dashboard() {
 
                 return (
                   <article
+                    className="dashboard-link-card"
                     key={url.shortCode}
                     style={{ borderBottom: idx < urls.length - 1 ? "1px solid rgba(15,23,42,0.06)" : "none", padding: "20px 24px", transition: "background 0.15s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(15,23,42,0.02)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "start" }}>
+                    <div className="dashboard-link-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 20, alignItems: "start" }}>
                       {/* Left: link info */}
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
                           <a
+                            className="dashboard-short-url"
                             href={computedShortUrl}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1343,11 +1353,11 @@ export default function Dashboard() {
                           >{computedShortUrl}</a>
                           {/* Domain badge */}
                           {!isShurLink && (
-                            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", color: "#4f46e5", fontFamily: "ui-monospace, monospace", flexShrink: 0 }}>custom</span>
+                            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.2)", color: "#0f766e", fontFamily: "ui-monospace, monospace", flexShrink: 0 }}>custom</span>
                           )}
                         </div>
 
-                        <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{url.longUrl}</p>
+                        <p className="dashboard-long-url" style={{ fontSize: 12, color: "#475569", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{url.longUrl}</p>
 
                         {/* Click bar */}
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -1363,7 +1373,7 @@ export default function Dashboard() {
                         </div>
 
                         {/* Action buttons row */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <div className="dashboard-link-actions" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                           {/* Copy */}
                           <button
                             onClick={() => handleCopy(computedShortUrl, url.id)}
@@ -1388,7 +1398,7 @@ export default function Dashboard() {
                                 setGeoOpenId(url.id);
                                 if (geoLoadingCode !== url.shortCode) void fetchGeoAnalytics(url.shortCode);
                               }}
-                              style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${geoOpen ? "rgba(99,102,241,0.3)" : "rgba(15,23,42,0.1)"}`, background: geoOpen ? "rgba(99,102,241,0.1)" : "#fff", color: geoOpen ? "#4f46e5" : "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${geoOpen ? "rgba(20,184,166,0.3)" : "rgba(15,23,42,0.1)"}`, background: geoOpen ? "rgba(20,184,166,0.1)" : "#fff", color: geoOpen ? "#0f766e" : "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
                               onMouseEnter={e => { if (!geoOpen) e.currentTarget.style.background = "rgba(15,23,42,0.02)"; }}
                               onMouseLeave={e => { if (!geoOpen) e.currentTarget.style.background = "#fff"; }}
                             >{geoOpen ? "Hide analytics" : "Analytics"}</button>
@@ -1407,7 +1417,7 @@ export default function Dashboard() {
                               onClick={() => void handleSwitchToCustom(url)}
                               disabled={isSwitchingToCustom}
                               title={`Use ${verifiedDomain}`}
-                              style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.05)", color: "#4f46e5", fontSize: 11, fontWeight: 600, cursor: isSwitchingToCustom ? "not-allowed" : "pointer", opacity: isSwitchingToCustom ? 0.6 : 1, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(20,184,166,0.3)", background: "rgba(20,184,166,0.05)", color: "#0f766e", fontSize: 11, fontWeight: 600, cursor: isSwitchingToCustom ? "not-allowed" : "pointer", opacity: isSwitchingToCustom ? 0.6 : 1, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                             >{isSwitchingToCustom ? "Switching…" : `Use custom`}</button>
                           )}
 
@@ -1421,19 +1431,19 @@ export default function Dashboard() {
 
                           {/* Free plan analytics notice */}
                           {!billing?.proActive && (
-                            <span style={{ fontSize: 10, color: "#64748b", padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.05)", background: "rgba(15,23,42,0.02)" }}>Analytics on Pro ⚡</span>
+                            <span style={{ fontSize: 10, color: "#64748b", padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.05)", background: "rgba(15,23,42,0.02)" }}>Analytics on Pro</span>
                           )}
                         </div>
 
                         {/* QR Panel */}
                         {qrOpen && (
-                          <div style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(15,23,42,0.06)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                          <div className="dashboard-qr-panel" style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(15,23,42,0.06)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                             <div ref={qrOpen ? qrCanvasRef : undefined} style={{ padding: 10, borderRadius: 10, background: "#fff", display: "inline-flex", border: "1px solid rgba(15,23,42,0.06)", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
                               <QRCodeCanvas value={computedShortUrl} size={88} level="M" includeMargin={false} />
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                              <p style={{ fontSize: 12, color: "#475569", margin: 0, fontFamily: "ui-monospace, monospace" }}>{computedShortUrl}</p>
-                              <div style={{ display: "flex", gap: 8 }}>
+                              <p className="dashboard-qr-url" style={{ fontSize: 12, color: "#475569", margin: 0, fontFamily: "ui-monospace, monospace" }}>{computedShortUrl}</p>
+                              <div className="dashboard-qr-actions" style={{ display: "flex", gap: 8 }}>
                                 <button
                                   onClick={() => {
                                     const wrapper = qrCanvasRef.current;
@@ -1470,12 +1480,12 @@ export default function Dashboard() {
 
                         {/* Geo Analytics Panel */}
                         {geoOpen && billing?.proActive && (
-                          <div style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                          <div style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(20,184,166,0.15)" }}>
                             {geoLoading && <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Loading analytics…</p>}
                             {geoError && <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>{geoError}</p>}
                             {!geoLoading && !geoError && geoData && (
                               <>
-                                <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
+                                <div className="dashboard-analytics-summary" style={{ display: "flex", gap: 20, marginBottom: 12 }}>
                                   <div><p style={{ fontSize: 10, color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total</p><p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>{geoData.totalClicks}</p></div>
                                   <div><p style={{ fontSize: 10, color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.08em" }}>Country-tracked</p><p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>{geoData.countryTrackedClicks}</p></div>
                                 </div>
@@ -1505,7 +1515,7 @@ export default function Dashboard() {
                       </div>
 
                       {/* Right: click count badge */}
-                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div className="dashboard-click-badge" style={{ textAlign: "right", flexShrink: 0 }}>
                         <p style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: "0 0 2px", lineHeight: 1 }}>{url.clickCount.toLocaleString()}</p>
                         <p style={{ fontSize: 10, fontFamily: "ui-monospace, monospace", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>clicks</p>
                       </div>
@@ -1548,7 +1558,7 @@ export default function Dashboard() {
           style={{ position: "fixed", inset: 0, zIndex: 50, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.5)", backdropFilter: "blur(8px)", padding: 16, overflowY: "auto" }}
           onClick={e => { if (e.target === e.currentTarget) setIsProfileOpen(false); }}
         >
-          <div style={{ width: "100%", maxWidth: 480, borderRadius: 20, background: "#fff", border: "1px solid rgba(15,23,42,0.08)", padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.15)", maxHeight: "calc(100svh - 48px)", overflowY: "auto" }}>
+          <div className="dashboard-profile-modal" style={{ width: "100%", maxWidth: 480, borderRadius: 20, background: "#fff", border: "1px solid rgba(15,23,42,0.08)", padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.15)", maxHeight: "calc(100svh - 48px)", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>Profile Settings</h3>
               <button onClick={() => setIsProfileOpen(false)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#64748b", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center" }}>×</button>
@@ -1572,9 +1582,9 @@ export default function Dashboard() {
                 {/* Profile Tab */}
                 {profileTab === "profile" && (
                   <form onSubmit={handleProfileSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between" }}>
+                    <div className="dashboard-profile-edit-row" style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between" }}>
                       <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Edit to unlock fields</p>
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div className="dashboard-profile-actions" style={{ display: "flex", gap: 8 }}>
                         {isProfileEditing && (
                           <button type="button" onClick={() => { setProfileFullName(initialProfileFullName); setProfileEmail(initialProfileEmail); setProfileError(null); setProfileMessage(null); setIsProfileEditing(false); }} style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#475569", fontSize: 11, cursor: "pointer" }}>Cancel</button>
                         )}
@@ -1600,7 +1610,7 @@ export default function Dashboard() {
                     {profileEmailOtpChallengeId && (
                       <div style={{ padding: 14, borderRadius: 10, background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.2)" }}>
                         <p style={{ fontSize: 12, color: "#d97706", marginBottom: 10 }}>Enter OTP sent to <strong>{profilePendingEmail || "new email"}</strong></p>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div className="dashboard-otp-row" style={{ display: "flex", gap: 8 }}>
                           <input type="text" value={profileEmailOtp} onChange={e => setProfileEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6-digit OTP" style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: "1px solid rgba(245,158,11,0.3)", background: "#fff", color: "#d97706", fontSize: 14, fontFamily: "ui-monospace, monospace", letterSpacing: "0.15em", outline: "none" }} />
                           <button type="button" onClick={() => void handleVerifyProfileEmailOtp()} disabled={isProfileOtpVerifying || profileEmailOtp.length !== 6} style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "#d97706", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{isProfileOtpVerifying ? "…" : "Verify"}</button>
                         </div>
