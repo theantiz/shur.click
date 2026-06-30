@@ -5,6 +5,7 @@ public class CreateShortUrlResponse {
     private Long id;
     private String shortCode;
     private String shortUrl;
+    private String shortBaseUrl;
     private String longUrl;
     private Long clickCount;
     private String createdAt;
@@ -17,6 +18,7 @@ public class CreateShortUrlResponse {
             Long id,
             String shortCode,
             String shortUrl,
+            String shortBaseUrl,
             String longUrl,
             Long clickCount,
             String createdAt,
@@ -25,6 +27,7 @@ public class CreateShortUrlResponse {
         this.id = id;
         this.shortCode = shortCode;
         this.shortUrl = shortUrl;
+        this.shortBaseUrl = shortBaseUrl;
         this.longUrl = longUrl;
         this.clickCount = clickCount;
         this.createdAt = createdAt;
@@ -53,6 +56,14 @@ public class CreateShortUrlResponse {
 
     public void setShortUrl(String shortUrl) {
         this.shortUrl = shortUrl;
+    }
+
+    public String getShortBaseUrl() {
+        return shortBaseUrl;
+    }
+
+    public void setShortBaseUrl(String shortBaseUrl) {
+        this.shortBaseUrl = shortBaseUrl;
     }
 
     public String getLongUrl() {

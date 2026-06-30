@@ -24,6 +24,7 @@ type UrlEntry = {
   longUrl: string;
   clickCount: number;
   shortUrl: string;
+  shortBaseUrl?: string | null;
   createdAt: string;
   lastAccessedAt: string | null;
 };
@@ -72,11 +73,23 @@ type ProfileUpdateResponse = MeResponse & {
   pendingEmail?: string;
 };
 
+type CustomDomain = {
+  id: number;
+  domain: string;
+  status: "PENDING" | "VERIFIED" | "FAILED";
+  verificationToken: string;
+};
+
+type ShortLinkDomainMode = "shur" | "custom";
+
 declare global {
   interface Window {
     Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
   }
 }
+
+const DEFAULT_SHORT_LINK_BASE_URL = "https://shur.click";
+const SHORT_LINK_DOMAIN_MODE_KEY = "shortLinkDomainMode";
 
 async function ensureRazorpayLoaded(): Promise<boolean> {
   if (window.Razorpay) return true;
@@ -118,6 +131,12 @@ export default function Dashboard() {
   );
   const [pendingDelete, setPendingDelete] = useState<UrlEntry | null>(null);
   const [isDeletingLink, setIsDeletingLink] = useState(false);
+  const [switchingToShurId, setSwitchingToShurId] = useState<number | null>(
+    null,
+  );
+  const [switchingToCustomId, setSwitchingToCustomId] = useState<number | null>(
+    null,
+  );
   const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] =
     useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -152,6 +171,17 @@ export default function Dashboard() {
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const autoRefreshInFlight = useRef(false);
+
+  const [domains, setDomains] = useState<CustomDomain[]>([]);
+  const [isDomainsLoading, setIsDomainsLoading] = useState(false);
+  const [domainError, setDomainError] = useState<string | null>(null);
+  const [newDomain, setNewDomain] = useState("");
+  const [shortLinkDomainMode, setShortLinkDomainMode] =
+    useState<ShortLinkDomainMode>(() =>
+      localStorage.getItem(SHORT_LINK_DOMAIN_MODE_KEY) === "custom"
+        ? "custom"
+        : "shur",
+    );
 
   const clearAuthAndRedirect = useCallback(() => {
     localStorage.removeItem("token");
@@ -205,6 +235,7 @@ export default function Dashboard() {
         longUrl: item.longUrl,
         clickCount: item.clickCount,
         shortUrl: item.shortUrl,
+        shortBaseUrl: item.shortBaseUrl || null,
         createdAt: item.createdAt || "",
         lastAccessedAt: item.lastAccessedAt || null,
       }));
@@ -241,6 +272,38 @@ export default function Dashboard() {
       console.error("Error fetching billing:", billingError);
     }
   }, [resolveApiError]);
+
+  const fetchDomains = useCallback(async (showLoading = domains.length === 0) => {
+    try {
+      if (showLoading) {
+        setIsDomainsLoading(true);
+      }
+      setDomainError(null);
+      const token = localStorage.getItem("token");
+      const response = await fetch(apiUrl("/api/domains"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const apiError = await resolveApiError(
+        response,
+        "Failed to fetch custom domains",
+      );
+      if (apiError) {
+        if (apiError === "__redirect__") return;
+        throw new Error(apiError);
+      }
+
+      const data = (await response.json()) as CustomDomain[];
+      setDomains(data);
+    } catch (err: any) {
+      console.error("Error fetching domains:", err);
+      setDomainError(err?.message || "Failed to fetch custom domains");
+    } finally {
+      if (showLoading) {
+        setIsDomainsLoading(false);
+      }
+    }
+  }, [domains.length, resolveApiError]);
 
   const fetchGeoAnalytics = useCallback(
     async (shortCode: string) => {
@@ -291,11 +354,11 @@ export default function Dashboard() {
       return;
     }
     try {
-      await Promise.all([fetchUrls(), fetchBilling()]);
+      await Promise.all([fetchUrls(), fetchBilling(), fetchDomains()]);
     } finally {
       setIsLoading(false);
     }
-  }, [fetchUrls, fetchBilling, navigate]);
+  }, [fetchUrls, fetchBilling, fetchDomains, navigate]);
 
   useEffect(() => {
     void refreshDashboard();
@@ -305,13 +368,13 @@ export default function Dashboard() {
     const intervalId = window.setInterval(() => {
       if (autoRefreshInFlight.current) return;
       autoRefreshInFlight.current = true;
-      void refreshDashboard().finally(() => {
+      void fetchUrls().finally(() => {
         autoRefreshInFlight.current = false;
       });
     }, 3000);
 
     return () => window.clearInterval(intervalId);
-  }, [refreshDashboard]);
+  }, [fetchUrls]);
 
   const handleCreateUrl = async (e: FormEvent) => {
     e.preventDefault();
@@ -331,6 +394,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           longUrl,
           customAlias: customAlias || null,
+          shortDomainMode: shortLinkDomainMode,
         }),
       });
 
@@ -374,6 +438,75 @@ export default function Dashboard() {
       setError(deleteError?.message || "Failed to delete URL");
     } finally {
       setIsDeletingLink(false);
+    }
+  };
+
+  const handleSwitchToShur = async (url: UrlEntry) => {
+    try {
+      setSwitchingToShurId(url.id);
+      setError(null);
+      const token = localStorage.getItem("token");
+      const response = await fetch(apiUrl(`/api/urls/${url.id}/switch-to-shur`), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const apiError = await resolveApiError(
+        response,
+        "Failed to switch link to shur.click",
+        {
+          409: "Alias URL name already exists on shur.click.",
+        },
+      );
+      if (apiError) {
+        if (apiError === "__redirect__") return;
+        throw new Error(apiError);
+      }
+
+      await response.json();
+      await refreshDashboard();
+    } catch (switchError: any) {
+      console.error("Error switching link domain:", switchError);
+      setError(switchError?.message || "Failed to switch link to shur.click");
+    } finally {
+      setSwitchingToShurId(null);
+    }
+  };
+
+  const handleSwitchToCustom = async (url: UrlEntry) => {
+    try {
+      setSwitchingToCustomId(url.id);
+      setError(null);
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        apiUrl(`/api/urls/${url.id}/switch-to-custom`),
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const apiError = await resolveApiError(
+        response,
+        "Failed to switch link to custom domain",
+        {
+          409: "Alias already exists on your custom domain.",
+        },
+      );
+      if (apiError) {
+        if (apiError === "__redirect__") return;
+        throw new Error(apiError);
+      }
+
+      await response.json();
+      await refreshDashboard();
+    } catch (switchError: any) {
+      console.error("Error switching link to custom domain:", switchError);
+      setError(
+        switchError?.message || "Failed to switch link to custom domain",
+      );
+    } finally {
+      setSwitchingToCustomId(null);
     }
   };
 
@@ -510,6 +643,96 @@ export default function Dashboard() {
       setPromoError(redeemError?.message || "Failed to redeem promo code");
     } finally {
       setIsRedeeming(false);
+    }
+  };
+
+  const handleAddDomain = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newDomain.trim()) return;
+    if (domains.length > 0) {
+      setDomainError("Only one custom domain is allowed per Pro account.");
+      return;
+    }
+    setDomainError(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const raw = newDomain.trim().replace(/^https?:\/\//i, "");
+      const response = await fetch(apiUrl("/api/domains"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ domain: raw }),
+      });
+
+      const apiError = await resolveApiError(
+        response,
+        "Failed to add custom domain",
+      );
+      if (apiError) {
+        if (apiError === "__redirect__") return;
+        throw new Error(apiError);
+      }
+
+      await response.json();
+      setNewDomain("");
+      await fetchDomains();
+    } catch (err: any) {
+      console.error("Error adding domain:", err);
+      setDomainError(err?.message || "Failed to add custom domain");
+    }
+  };
+
+  const handleVerifyDomain = async (id: number) => {
+    setDomainError(null);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(apiUrl(`/api/domains/${id}/verify`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const apiError = await resolveApiError(
+        response,
+        "Failed to verify custom domain",
+      );
+      if (apiError) {
+        if (apiError === "__redirect__") return;
+        throw new Error(apiError);
+      }
+
+      await response.json();
+      await fetchDomains();
+    } catch (err: any) {
+      console.error("Error verifying domain:", err);
+      setDomainError(err?.message || "Failed to verify custom domain");
+    }
+  };
+
+  const handleDeleteDomain = async (id: number) => {
+    setDomainError(null);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(apiUrl(`/api/domains/${id}`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const apiError = await resolveApiError(
+        response,
+        "Failed to delete custom domain",
+      );
+      if (apiError) {
+        if (apiError === "__redirect__") return;
+        throw new Error(apiError);
+      }
+
+      await fetchDomains();
+    } catch (err: any) {
+      console.error("Error deleting domain:", err);
+      setDomainError(err?.message || "Failed to delete custom domain");
     }
   };
 
@@ -772,8 +995,30 @@ export default function Dashboard() {
   };
 
   const totalClicks = urls.reduce((sum, url) => sum + url.clickCount, 0);
+  const verifiedDomain = domains.find((d) => d.status === "VERIFIED")?.domain;
+  const customShortLinkBase =
+    verifiedDomain && billing?.proActive
+      ? `https://${verifiedDomain.replace(/\/+$/, "")}`
+      : null;
+  const selectedShortLinkBase =
+    shortLinkDomainMode === "custom" && customShortLinkBase
+      ? customShortLinkBase
+      : DEFAULT_SHORT_LINK_BASE_URL;
   const formatDateTime = (value: string | null) => {
     return formatIstDateTime(value);
+  };
+
+  useEffect(() => {
+    if (shortLinkDomainMode === "custom" && !customShortLinkBase) {
+      setShortLinkDomainMode("shur");
+      localStorage.setItem(SHORT_LINK_DOMAIN_MODE_KEY, "shur");
+    }
+  }, [customShortLinkBase, shortLinkDomainMode]);
+
+  const handleShortLinkDomainModeChange = (mode: ShortLinkDomainMode) => {
+    if (mode === "custom" && !customShortLinkBase) return;
+    setShortLinkDomainMode(mode);
+    localStorage.setItem(SHORT_LINK_DOMAIN_MODE_KEY, mode);
   };
 
   if (isLoading) {
@@ -781,434 +1026,488 @@ export default function Dashboard() {
       <div className="app-shell min-h-screen px-3 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto w-full max-w-6xl">
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="mt-2 h-8 w-12" />
+            <div className="rounded-2xl border border-slate-200 bg-white/50 p-4">
+              <Skeleton className="h-3 w-20 bg-slate-200" />
+              <Skeleton className="mt-2 h-8 w-12 bg-slate-200" />
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="mt-2 h-8 w-14" />
+            <div className="rounded-2xl border border-slate-200 bg-white/50 p-4">
+              <Skeleton className="h-3 w-24 bg-slate-200" />
+              <Skeleton className="mt-2 h-8 w-14 bg-slate-200" />
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="mt-2 h-8 w-12" />
+            <div className="rounded-2xl border border-slate-200 bg-white/50 p-4">
+              <Skeleton className="h-3 w-20 bg-slate-200" />
+              <Skeleton className="mt-2 h-8 w-12 bg-slate-200" />
             </div>
           </div>
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white/80 p-5">
-            <Skeleton className="h-6 w-40" />
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white/50 p-5">
+            <Skeleton className="h-6 w-40 bg-slate-200" />
             <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full sm:w-28" />
+              <Skeleton className="h-12 w-full bg-slate-200" />
+              <Skeleton className="h-12 w-full bg-slate-200" />
+              <Skeleton className="h-12 w-full sm:w-28 bg-slate-200" />
             </div>
           </section>
-          <section className="mt-6 rounded-2xl border border-slate-200 bg-white/80 p-5">
-            <Skeleton className="h-6 w-28" />
-            <Skeleton className="mt-4 h-16 w-full" />
-            <Skeleton className="mt-3 h-16 w-full" />
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white/50 p-5">
+            <Skeleton className="h-6 w-28 bg-slate-200" />
+            <Skeleton className="mt-4 h-16 w-full bg-slate-200" />
+            <Skeleton className="mt-3 h-16 w-full bg-slate-200" />
           </section>
         </div>
       </div>
     );
   }
 
+
   return (
-    <div className="app-shell min-h-screen text-slate-800">
-      <header className="sticky top-0 z-20 border-b border-slate-900/10 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <Link
-              to="/"
-              className="font-mono text-sm font-semibold text-teal-800 sm:text-base"
-            >
-              shur.click
+    <div style={{ minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+
+      {/* ── TOP NAV ── */}
+      <header style={{ position: "sticky", top: 0, zIndex: 40, borderBottom: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", height: 60 }}>
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#0f766e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", fontFamily: "ui-monospace, monospace" }}>s.</div>
+              <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 15, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>shur.click</span>
             </Link>
-            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-slate-500">
-              Dashboard
-            </span>
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#0f766e", background: "rgba(20,184,166,0.12)", border: "1px solid rgba(20,184,166,0.25)", borderRadius: 6, padding: "2px 8px" }}>Dashboard</span>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Right side */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {billing?.proActive && (
+              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", background: "#d97706", color: "#fff", borderRadius: 6, padding: "3px 10px" }}>PRO</span>
+            )}
             <button
               onClick={openProfile}
               title="Profile settings"
               aria-label="Profile settings"
-              className="grid h-8 w-8 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:border-teal-600 hover:text-teal-700"
-            >
-              <span className="font-mono text-xs font-semibold">
-                {(profileFullName || localStorage.getItem("userName") || "U")
-                  .trim()
-                  .charAt(0)
-                  .toUpperCase()}
-              </span>
-            </button>
+              style={{ width: 36, height: 36, borderRadius: "50%", background: "#0f766e", border: "2px solid rgba(20,184,166,0.4)", color: "#fff", fontWeight: 700, fontSize: 13, fontFamily: "ui-monospace, monospace", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.15s, box-shadow 0.15s", boxShadow: "0 0 0 0 rgba(20,184,166,0)" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.08)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 16px rgba(20,184,166,0.5)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 0 rgba(20,184,166,0)"; }}
+            >{(profileFullName || localStorage.getItem("userName") || "U").trim().charAt(0).toUpperCase()}</button>
             <button
               onClick={handleLogout}
-              className="rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-500"
-            >
-              Logout
-            </button>
+              style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#475569", fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.15s" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(15,23,42,0.04)"; (e.currentTarget as HTMLButtonElement).style.color = "#0f172a"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; (e.currentTarget as HTMLButtonElement).style.color = "#475569"; }}
+            >Logout</button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 sm:py-8">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="font-mono text-xs text-slate-500">LINKS</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">
-              {urls.length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="font-mono text-xs text-slate-500">TOTAL CLICKS</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">
-              {totalClicks}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="font-mono text-xs text-slate-500">AVG / LINK</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">
-              {urls.length ? Math.round(totalClicks / urls.length) : 0}
-            </p>
-          </div>
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 64px" }}>
+
+        {/* ── STAT CARDS ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+          {[
+            { label: "Total Links", value: urls.length, color: "#0f766e", glow: "rgba(20,184,166,0.1)" },
+            { label: "Total Clicks", value: totalClicks, color: "#4f46e5", glow: "rgba(99,102,241,0.1)" },
+            { label: "Avg / Link", value: urls.length ? Math.round(totalClicks / urls.length) : 0, color: "#d97706", glow: "rgba(245,158,11,0.1)" },
+          ].map(card => (
+            <div key={card.label} style={{ borderRadius: 16, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: "20px 24px", position: "relative", overflow: "hidden", transition: "transform 0.2s, border-color 0.2s, box-shadow 0.2s", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = card.color; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 16px rgba(0,0,0,0.04)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(15,23,42,0.08)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.02)"; }}
+            >
+              <div style={{ position: "absolute", top: 0, right: 0, width: 120, height: 120, borderRadius: "50%", background: card.glow, filter: "blur(40px)", pointerEvents: "none" }} />
+              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#64748b", marginBottom: 8 }}>{card.label}</p>
+              <p style={{ fontSize: 36, fontWeight: 700, color: "#0f172a", lineHeight: 1, marginBottom: 4 }}>{card.value.toLocaleString()}</p>
+              <div style={{ width: 28, height: 3, borderRadius: 2, background: `${card.color}` }} />
+            </div>
+          ))}
         </div>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-          <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Create Link
-            </h2>
-            {error && (
-              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                {error}
+        {/* ── TOP PANEL: CREATE + PLAN ── */}
+        <div style={{ display: "grid", gridTemplateColumns: billing ? "1fr 340px" : "1fr", gap: 16, marginBottom: 24 }}>
+
+          {/* Create Link */}
+          <div style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: 24, boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0, marginBottom: 2 }}>Shorten a link</h2>
+                <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Creating on <span style={{ color: "#0f766e", fontFamily: "ui-monospace, monospace" }}>{selectedShortLinkBase.replace(/^https?:\/\//, "")}</span></p>
               </div>
+            </div>
+
+            {error && (
+              <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", color: "#b91c1c", fontSize: 13 }}>{error}</div>
             )}
-            <form
-              onSubmit={handleCreateUrl}
-              className="mt-3 grid gap-3 sm:grid-cols-[1fr_180px_auto]"
-            >
-              <input
-                type="url"
-                value={longUrl}
-                onChange={(e) => setLongUrl(e.target.value)}
-                placeholder="https://your-long-url.com"
-                className="min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-600"
-                required
-              />
-              <input
-                type="text"
-                value={customAlias}
-                onChange={(e) => setCustomAlias(e.target.value)}
-                placeholder="custom alias"
-                className="min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-600"
-              />
-              <button
-                type="submit"
-                disabled={isCreating || !longUrl.trim()}
-                className="rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isCreating ? "Creating..." : "Shorten"}
-              </button>
-            </form>
-          </section>
 
-          {billing && (
-            <section className="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
-              <p className="font-mono text-xs text-slate-500">PLAN</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">
-                {billing.proActive
-                  ? "PRO (Unlimited)"
-                  : `FREE (${billing.usedLinks}/${billing.freeTierLimit})`}
-              </p>
-              {billing.proActive && billing.proExpiresAt && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Active until{" "}
-                  {parseApiDateTime(billing.proExpiresAt)?.toLocaleDateString(
-                    "en-IN",
-                    { timeZone: IST_TIMEZONE },
-                  ) ?? "N/A"}
-                </p>
-              )}
-              {!billing.proActive && (
-                <p className="mt-1 text-xs text-slate-500">
-                  {billing.remainingFreeLinks ?? 0} free links remaining
-                </p>
-              )}
-              {!billing.proActive && (
+            <form onSubmit={handleCreateUrl}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 160px auto", gap: 10, marginBottom: 14 }}>
+                <input
+                  type="url"
+                  value={longUrl}
+                  onChange={e => setLongUrl(e.target.value)}
+                  placeholder="https://your-very-long-url.com/..."
+                  required
+                  style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(15,23,42,0.15)", background: "#fff", color: "#0f172a", fontSize: 13, outline: "none", transition: "border-color 0.15s, box-shadow 0.15s" }}
+                  onFocus={e => { e.target.style.borderColor = "#14b8a6"; e.target.style.boxShadow = "0 0 0 3px rgba(20,184,166,0.15)"; }}
+                  onBlur={e => { e.target.style.borderColor = "rgba(15,23,42,0.15)"; e.target.style.boxShadow = "none"; }}
+                />
+                <input
+                  type="text"
+                  value={customAlias}
+                  onChange={e => setCustomAlias(e.target.value)}
+                  placeholder="custom-alias"
+                  style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(15,23,42,0.15)", background: "#fff", color: "#0f172a", fontSize: 13, outline: "none", transition: "border-color 0.15s, box-shadow 0.15s" }}
+                  onFocus={e => { e.target.style.borderColor = "#14b8a6"; e.target.style.boxShadow = "0 0 0 3px rgba(20,184,166,0.15)"; }}
+                  onBlur={e => { e.target.style.borderColor = "rgba(15,23,42,0.15)"; e.target.style.boxShadow = "none"; }}
+                />
                 <button
-                  type="button"
-                  onClick={handleUpgrade}
-                  disabled={isUpgrading}
-                  className="mt-4 w-full rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isUpgrading
-                    ? "Opening checkout..."
-                    : `Upgrade Pro - $${billing.proMonthlyPriceUsd}/month`}
-                </button>
-              )}
+                  type="submit"
+                  disabled={isCreating || !longUrl.trim()}
+                  style={{ padding: "11px 22px", borderRadius: 10, border: "none", background: isCreating || !longUrl.trim() ? "rgba(20,184,166,0.3)" : "#0f766e", color: "#fff", fontSize: 13, fontWeight: 600, cursor: isCreating || !longUrl.trim() ? "not-allowed" : "pointer", transition: "all 0.15s", whiteSpace: "nowrap" }}
+                >{isCreating ? "Creating…" : "Shorten →"}</button>
+              </div>
 
-              {/* Promo code redemption — shown only on FREE plan */}
+              {/* Domain toggle */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "rgba(15,23,42,0.02)", border: "1px solid rgba(15,23,42,0.06)" }}>
+                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>Short link domain</span>
+                <div style={{ display: "flex", background: "rgba(15,23,42,0.06)", borderRadius: 8, padding: 3, gap: 2 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleShortLinkDomainModeChange("shur")}
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: shortLinkDomainMode === "shur" ? "#fff" : "transparent", color: shortLinkDomainMode === "shur" ? "#0f766e" : "#64748b", fontSize: 11, fontWeight: 600, fontFamily: "ui-monospace, monospace", cursor: "pointer", transition: "all 0.2s", boxShadow: shortLinkDomainMode === "shur" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
+                  >shur.click</button>
+                  <button
+                    type="button"
+                    onClick={() => handleShortLinkDomainModeChange("custom")}
+                    disabled={!customShortLinkBase}
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: shortLinkDomainMode === "custom" && customShortLinkBase ? "#fff" : "transparent", color: shortLinkDomainMode === "custom" && customShortLinkBase ? "#4f46e5" : !customShortLinkBase ? "#94a3b8" : "#64748b", fontSize: 11, fontWeight: 600, fontFamily: "ui-monospace, monospace", cursor: !customShortLinkBase ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: shortLinkDomainMode === "custom" && customShortLinkBase ? "0 1px 3px rgba(0,0,0,0.1)" : "none", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    title={verifiedDomain || "Custom domain"}
+                  >{verifiedDomain ? (verifiedDomain.length > 18 ? verifiedDomain.slice(0, 16) + "…" : verifiedDomain) : "Custom"}</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Plan & Domains Panel */}
+          {billing && (
+            <div style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", padding: 24, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+              {/* Plan header */}
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+                <div>
+                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#64748b", marginBottom: 4 }}>Plan</p>
+                  <p style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", margin: 0 }}>{billing.proActive ? "Pro" : `Free`}</p>
+                  {billing.proActive && billing.proExpiresAt && (
+                    <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>until {parseApiDateTime(billing.proExpiresAt)?.toLocaleDateString("en-IN", { timeZone: IST_TIMEZONE }) ?? "N/A"}</p>
+                  )}
+                  {!billing.proActive && (
+                    <p style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{billing.usedLinks}/{billing.freeTierLimit} links used</p>
+                  )}
+                </div>
+                <span style={{ padding: "4px 10px", borderRadius: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", background: billing.proActive ? "rgba(245,158,11,0.15)" : "rgba(100,116,139,0.1)", border: billing.proActive ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(100,116,139,0.2)", color: billing.proActive ? "#d97706" : "#64748b" }}>
+                  {billing.proActive ? "Unlimited" : "Free tier"}
+                </span>
+              </div>
+
+              {/* Free → Upgrade CTA */}
               {!billing.proActive && (
-                <div className="mt-4 border-t border-slate-200 pt-4">
-                  <p className="mb-2 text-xs font-medium text-slate-500">
-                    Have a promo code?
-                  </p>
-                  <form onSubmit={handleRedeemPromo} className="flex gap-2">
+                <>
+                  {/* Progress bar */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ height: 4, borderRadius: 4, background: "rgba(15,23,42,0.06)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.min((billing.usedLinks / billing.freeTierLimit) * 100, 100)}%`, background: "#0f766e", borderRadius: 4, transition: "width 0.6s ease" }} />
+                    </div>
+                    <p style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>{billing.remainingFreeLinks ?? 0} free links remaining</p>
+                  </div>
+                  <button
+                    onClick={handleUpgrade}
+                    disabled={isUpgrading}
+                    style={{ width: "100%", padding: "11px 0", borderRadius: 10, border: "none", background: isUpgrading ? "rgba(245,158,11,0.3)" : "#d97706", color: "#fff", fontSize: 13, fontWeight: 700, cursor: isUpgrading ? "not-allowed" : "pointer", transition: "all 0.15s", marginBottom: 12 }}
+                  >{isUpgrading ? "Opening checkout…" : `Upgrade to Pro — $${billing.proMonthlyPriceUsd}/mo`}</button>
+                  {/* Promo */}
+                  <form onSubmit={handleRedeemPromo} style={{ display: "flex", gap: 8 }}>
                     <input
                       type="text"
                       value={promoCode}
-                      onChange={(e) =>
-                        setPromoCode(e.target.value.toUpperCase())
-                      }
-                      placeholder="Enter promo code"
+                      onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                      placeholder="PROMO CODE"
                       maxLength={64}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-mono text-xs uppercase tracking-wider outline-none transition focus:border-teal-600"
+                      style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#0f172a", fontSize: 11, fontFamily: "ui-monospace, monospace", letterSpacing: "0.1em", outline: "none" }}
+                      onFocus={e => (e.target.style.borderColor = "#14b8a6")}
+                      onBlur={e => (e.target.style.borderColor = "rgba(15,23,42,0.1)")}
                     />
                     <button
                       type="submit"
                       disabled={isRedeeming || !promoCode.trim()}
-                      className="rounded-lg border border-teal-600 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isRedeeming ? "..." : "Redeem"}
-                    </button>
+                      style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(20,184,166,0.3)", background: "rgba(20,184,166,0.1)", color: "#0f766e", fontSize: 11, fontWeight: 600, cursor: isRedeeming || !promoCode.trim() ? "not-allowed" : "pointer" }}
+                    >{isRedeeming ? "…" : "Redeem"}</button>
                   </form>
-                  {promoSuccess && (
-                    <p className="mt-2 text-xs font-medium text-teal-700">
-                      {promoSuccess}
-                    </p>
+                  {promoSuccess && <p style={{ fontSize: 11, color: "#059669", marginTop: 6 }}>{promoSuccess}</p>}
+                  {promoError && <p style={{ fontSize: 11, color: "#dc2626", marginTop: 6 }}>{promoError}</p>}
+                </>
+              )}
+
+              {/* Pro → Custom Domain */}
+              {billing.proActive && (
+                <div style={{ borderTop: "1px solid rgba(15,23,42,0.06)", paddingTop: 16, marginTop: 4 }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Custom Domain</p>
+                  {domains.length === 0 && (
+                    <form onSubmit={handleAddDomain} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                      <input
+                        type="text"
+                        value={newDomain}
+                        onChange={e => setNewDomain(e.target.value)}
+                        placeholder="links.yourbrand.com"
+                        style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#0f172a", fontSize: 12, outline: "none" }}
+                        onFocus={e => (e.target.style.borderColor = "#6366f1")}
+                        onBlur={e => (e.target.style.borderColor = "rgba(15,23,42,0.1)")}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newDomain.trim()}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontSize: 11, fontWeight: 600, cursor: !newDomain.trim() ? "not-allowed" : "pointer", opacity: !newDomain.trim() ? 0.5 : 1 }}
+                      >Add</button>
+                    </form>
                   )}
-                  {promoError && (
-                    <p className="mt-2 text-xs text-rose-600">{promoError}</p>
-                  )}
+                  {domainError && <p style={{ fontSize: 11, color: "#dc2626", marginBottom: 8 }}>{domainError}</p>}
+                  {isDomainsLoading && <p style={{ fontSize: 11, color: "#64748b" }}>Loading…</p>}
+                  {!isDomainsLoading && domains.length === 0 && <p style={{ fontSize: 11, color: "#64748b" }}>No custom domain yet. Add one above.</p>}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {domains.map(d => (
+                      <div key={d.id} style={{ borderRadius: 10, border: "1px solid rgba(15,23,42,0.08)", background: "#fff", padding: "10px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, color: "#0f172a", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{d.domain}</p>
+                            <span style={{ display: "inline-block", marginTop: 4, padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600, background: d.status === "VERIFIED" ? "rgba(16,185,129,0.1)" : d.status === "FAILED" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)", color: d.status === "VERIFIED" ? "#059669" : d.status === "FAILED" ? "#dc2626" : "#d97706", border: d.status === "VERIFIED" ? "1px solid rgba(16,185,129,0.2)" : d.status === "FAILED" ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(245,158,11,0.2)" }}>{d.status}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            {d.status !== "VERIFIED" && (
+                              <button onClick={() => void handleVerifyDomain(d.id)} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(20,184,166,0.3)", background: "rgba(20,184,166,0.1)", color: "#0f766e", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Verify</button>
+                            )}
+                            <button onClick={() => void handleDeleteDomain(d.id)} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.05)", color: "#dc2626", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                          </div>
+                        </div>
+                        {d.status !== "VERIFIED" && (
+                          <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 7, background: "rgba(15,23,42,0.03)", border: "1px solid rgba(15,23,42,0.05)" }}>
+                            <p style={{ fontSize: 10, color: "#64748b", marginBottom: 4 }}>Add this TXT record in your DNS:</p>
+                            <pre style={{ margin: 0, fontFamily: "ui-monospace, monospace", fontSize: 10, color: "#475569", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{`Host: _shurclick-verify.${d.domain}\nValue: ${d.verificationToken}`}</pre>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </section>
+            </div>
           )}
-        </section>
+        </div>
 
-        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white/85">
-          <div className="border-b border-slate-200 px-4 py-3 sm:px-5">
-            <h2 className="text-lg font-semibold text-slate-900">Your Links</h2>
+        {/* ── LINKS LIST ── */}
+        <div style={{ borderRadius: 20, border: "1px solid rgba(15,23,42,0.08)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)", overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+          {/* List header */}
+          <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Your Links</h2>
+            <span style={{ fontSize: 11, fontFamily: "ui-monospace, monospace", color: "#64748b", background: "rgba(15,23,42,0.05)", padding: "3px 10px", borderRadius: 6 }}>{urls.length} total</span>
           </div>
 
           {urls.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-slate-500">
-              No links yet. Create your first one above.
-            </p>
+            <div style={{ padding: "64px 24px", textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 12, fontWeight: 700, color: "#cbd5e1" }}>0</div>
+              <p style={{ fontSize: 15, color: "#64748b", margin: 0 }}>No links yet. Create your first one above.</p>
+            </div>
           ) : (
-            <div className="divide-y divide-slate-200">
-              {urls.map((url) => {
-                const computedShortUrl =
-                  url.shortUrl || `${window.location.origin}/${url.shortCode}`;
+            <div>
+              {urls.map((url, idx) => {
+                const computedShortUrl = url.shortUrl || `${DEFAULT_SHORT_LINK_BASE_URL}/${url.shortCode}`;
+                const shortBaseUrl = url.shortBaseUrl || DEFAULT_SHORT_LINK_BASE_URL;
+                const isShurLink = shortBaseUrl.replace(/\/+$/, "").toLowerCase() === DEFAULT_SHORT_LINK_BASE_URL.toLowerCase();
                 const qrOpen = qrOpenId === url.id;
                 const geoOpen = geoOpenId === url.id;
                 const geoData = geoByCode[url.shortCode];
                 const geoError = geoErrorByCode[url.shortCode];
                 const geoLoading = geoLoadingCode === url.shortCode;
+                const isSwitchingToShur = switchingToShurId === url.id;
+                const isSwitchingToCustom = switchingToCustomId === url.id;
+                const maxClicks = Math.max(...urls.map(u => u.clickCount), 1);
+                const clickPct = Math.round((url.clickCount / maxClicks) * 100);
+
                 return (
-                  <article key={url.shortCode} className="px-4 py-4 sm:px-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
+                  <article
+                    key={url.shortCode}
+                    style={{ borderBottom: idx < urls.length - 1 ? "1px solid rgba(15,23,42,0.06)" : "none", padding: "20px 24px", transition: "background 0.15s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(15,23,42,0.02)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "start" }}>
+                      {/* Left: link info */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
                           <a
                             href={computedShortUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="break-all font-mono text-sm text-teal-700 underline-offset-2 hover:underline sm:truncate"
-                          >
-                            {computedShortUrl}
-                          </a>
+                            style={{ fontFamily: "ui-monospace, monospace", fontSize: 14, fontWeight: 600, color: "#0f766e", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}
+                          >{computedShortUrl}</a>
+                          {/* Domain badge */}
+                          {!isShurLink && (
+                            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", color: "#4f46e5", fontFamily: "ui-monospace, monospace", flexShrink: 0 }}>custom</span>
+                          )}
+                        </div>
+
+                        <p style={{ fontSize: 12, color: "#475569", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{url.longUrl}</p>
+
+                        {/* Click bar */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                          <div style={{ height: 3, flex: 1, maxWidth: 180, borderRadius: 3, background: "rgba(15,23,42,0.06)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${clickPct}%`, background: "#0f766e", borderRadius: 3, transition: "width 0.6s ease" }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: "#64748b", flexShrink: 0 }}>{url.clickCount.toLocaleString()} clicks</span>
+                        </div>
+
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                          <span style={{ fontSize: 10, color: "#64748b", padding: "3px 8px", borderRadius: 6, background: "rgba(15,23,42,0.03)", border: "1px solid rgba(15,23,42,0.06)" }}>Created {formatDateTime(url.createdAt)}</span>
+                          <span style={{ fontSize: 10, color: "#64748b", padding: "3px 8px", borderRadius: 6, background: "rgba(15,23,42,0.03)", border: "1px solid rgba(15,23,42,0.06)" }}>Last click {formatDateTime(url.lastAccessedAt)}</span>
+                        </div>
+
+                        {/* Action buttons row */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {/* Copy */}
                           <button
                             onClick={() => handleCopy(computedShortUrl, url.id)}
-                            className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 transition hover:border-slate-500"
-                          >
-                            {copiedId === url.id ? "Copied" : "Copy"}
-                          </button>
-                        </div>
-                        <p className="mt-1 break-all text-xs text-slate-500 sm:truncate">
-                          {url.longUrl}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5">
-                            Created: {formatDateTime(url.createdAt)}
-                          </span>
-                          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5">
-                            Last clicked: {formatDateTime(url.lastAccessedAt)}
-                          </span>
-                        </div>
+                            style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${copiedId === url.id ? "rgba(16,185,129,0.3)" : "rgba(15,23,42,0.1)"}`, background: copiedId === url.id ? "rgba(16,185,129,0.1)" : "#fff", color: copiedId === url.id ? "#059669" : "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
+                            onMouseEnter={e => { if (copiedId !== url.id) e.currentTarget.style.background = "rgba(15,23,42,0.02)"; }}
+                            onMouseLeave={e => { if (copiedId !== url.id) e.currentTarget.style.background = "#fff"; }}
+                          >{copiedId === url.id ? "Copied" : "Copy URL"}</button>
 
-                        {billing?.proActive ? (
-                          <>
+                          {/* QR */}
+                          <button
+                            onClick={() => setQrOpenId(qrOpen ? null : url.id)}
+                            style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${qrOpen ? "rgba(20,184,166,0.3)" : "rgba(15,23,42,0.1)"}`, background: qrOpen ? "rgba(20,184,166,0.1)" : "#fff", color: qrOpen ? "#0f766e" : "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
+                            onMouseEnter={e => { if (!qrOpen) e.currentTarget.style.background = "rgba(15,23,42,0.02)"; }}
+                            onMouseLeave={e => { if (!qrOpen) e.currentTarget.style.background = "#fff"; }}
+                          >{qrOpen ? "Hide QR" : "QR Code"}</button>
+
+                          {/* Geo analytics */}
+                          {billing?.proActive && (
                             <button
-                              type="button"
                               onClick={() => {
-                                if (geoOpen) {
-                                  setGeoOpenId(null);
-                                  return;
-                                }
+                                if (geoOpen) { setGeoOpenId(null); return; }
                                 setGeoOpenId(url.id);
-                                if (geoLoadingCode !== url.shortCode) {
-                                  void fetchGeoAnalytics(url.shortCode);
-                                }
+                                if (geoLoadingCode !== url.shortCode) void fetchGeoAnalytics(url.shortCode);
                               }}
-                              className="mt-2 block font-mono text-xs text-slate-600 transition hover:text-slate-900"
-                            >
-                              {geoOpen
-                                ? "[-] hide country analytics"
-                                : "[+] show country analytics"}
-                            </button>
+                              style={{ padding: "5px 12px", borderRadius: 7, border: `1px solid ${geoOpen ? "rgba(99,102,241,0.3)" : "rgba(15,23,42,0.1)"}`, background: geoOpen ? "rgba(99,102,241,0.1)" : "#fff", color: geoOpen ? "#4f46e5" : "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
+                              onMouseEnter={e => { if (!geoOpen) e.currentTarget.style.background = "rgba(15,23,42,0.02)"; }}
+                              onMouseLeave={e => { if (!geoOpen) e.currentTarget.style.background = "#fff"; }}
+                            >{geoOpen ? "Hide analytics" : "Analytics"}</button>
+                          )}
 
-                            {geoOpen && (
-                              <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
-                                {geoLoading && (
-                                  <p className="text-xs text-slate-500">
-                                    Loading country analytics...
-                                  </p>
-                                )}
-                                {geoError && (
-                                  <p className="text-xs text-rose-700">
-                                    {geoError}
-                                  </p>
-                                )}
-                                {!geoLoading && !geoError && geoData && (
-                                  <div>
-                                    <div className="mb-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
-                                      <span>Total: {geoData.totalClicks}</span>
-                                      <span>
-                                        Country-tracked:{" "}
-                                        {geoData.countryTrackedClicks}
-                                      </span>
-                                    </div>
-                                    {geoData.topCountries.length === 0 ? (
-                                      <p className="text-xs text-slate-500">
-                                        No country data yet.
-                                      </p>
-                                    ) : (
-                                      <div className="space-y-1.5">
-                                        {geoData.topCountries.map((row) => {
-                                          const denom =
-                                            geoData.countryTrackedClicks || 1;
-                                          const pct = Math.round(
-                                            (row.clicks / denom) * 100,
-                                          );
-                                          return (
-                                            <div
-                                              key={row.countryCode}
-                                              className="flex items-center justify-between rounded-md border border-slate-200 px-2 py-1 text-xs"
-                                            >
-                                              <span className="font-mono text-slate-700">
-                                                {row.countryCode}
-                                              </span>
-                                              <span className="text-slate-600">
-                                                {row.clicks} ({pct}%)
-                                              </span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <p className="mt-2 text-[11px] text-slate-500">
-                            Country analytics is available on Pro plan.
-                          </p>
-                        )}
-                      </div>
+                          {/* Domain switch */}
+                          {!isShurLink && (
+                            <button
+                              onClick={() => void handleSwitchToShur(url)}
+                              disabled={isSwitchingToShur}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(20,184,166,0.3)", background: "rgba(20,184,166,0.05)", color: "#0f766e", fontSize: 11, fontWeight: 600, cursor: isSwitchingToShur ? "not-allowed" : "pointer", opacity: isSwitchingToShur ? 0.6 : 1 }}
+                            >{isSwitchingToShur ? "Switching…" : "Use shur.click"}</button>
+                          )}
+                          {isShurLink && customShortLinkBase && (
+                            <button
+                              onClick={() => void handleSwitchToCustom(url)}
+                              disabled={isSwitchingToCustom}
+                              title={`Use ${verifiedDomain}`}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.05)", color: "#4f46e5", fontSize: 11, fontWeight: 600, cursor: isSwitchingToCustom ? "not-allowed" : "pointer", opacity: isSwitchingToCustom ? 0.6 : 1, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                            >{isSwitchingToCustom ? "Switching…" : `Use custom`}</button>
+                          )}
 
-                      <div className="flex flex-col items-stretch gap-2 sm:items-end">
-                        <div className="text-left sm:text-right">
-                          <p className="text-lg font-semibold text-slate-900">
-                            {url.clickCount}
-                          </p>
-                          <p className="font-mono text-[10px] uppercase tracking-wide text-slate-500">
-                            clicks
-                          </p>
+                          {/* Delete */}
+                          <button
+                            onClick={() => requestDelete(url)}
+                            style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.2)", background: "#fff", color: "#dc2626", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all 0.15s", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.05)"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
+                          >Delete</button>
+
+                          {/* Free plan analytics notice */}
+                          {!billing?.proActive && (
+                            <span style={{ fontSize: 10, color: "#64748b", padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.05)", background: "rgba(15,23,42,0.02)" }}>Analytics on Pro ⚡</span>
+                          )}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setQrOpenId(qrOpen ? null : url.id)}
-                          className="font-mono text-xs text-slate-600 transition hover:text-slate-900"
-                        >
-                          {qrOpen ? "[-] hide qr" : "[+] show qr"}
-                        </button>
+                        {/* QR Panel */}
                         {qrOpen && (
-                          <div className="flex flex-col items-start gap-2 sm:items-end">
-                            <div
-                              ref={qrOpen ? qrCanvasRef : undefined}
-                              className="self-start rounded-lg border border-slate-200 bg-white p-2 sm:self-end"
-                            >
-                              <QRCodeCanvas
-                                value={computedShortUrl}
-                                size={88}
-                                level="M"
-                                includeMargin={false}
-                              />
+                          <div style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(15,23,42,0.06)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                            <div ref={qrOpen ? qrCanvasRef : undefined} style={{ padding: 10, borderRadius: 10, background: "#fff", display: "inline-flex", border: "1px solid rgba(15,23,42,0.06)", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+                              <QRCodeCanvas value={computedShortUrl} size={88} level="M" includeMargin={false} />
                             </div>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const wrapper = qrCanvasRef.current;
-                                  if (!wrapper) return;
-                                  const canvas =
-                                    wrapper.querySelector("canvas");
-                                  if (!canvas) return;
-                                  const link = document.createElement("a");
-                                  link.download = `qr-${url.shortCode}.png`;
-                                  link.href = canvas.toDataURL("image/png");
-                                  link.click();
-                                }}
-                                className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[10px] text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                              >
-                                ↓ download
-                              </button>
-                              {typeof navigator.share === "function" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              <p style={{ fontSize: 12, color: "#475569", margin: 0, fontFamily: "ui-monospace, monospace" }}>{computedShortUrl}</p>
+                              <div style={{ display: "flex", gap: 8 }}>
                                 <button
-                                  type="button"
-                                  onClick={async () => {
+                                  onClick={() => {
                                     const wrapper = qrCanvasRef.current;
                                     if (!wrapper) return;
-                                    const canvas =
-                                      wrapper.querySelector("canvas");
+                                    const canvas = wrapper.querySelector("canvas");
                                     if (!canvas) return;
-                                    canvas.toBlob(async (blob) => {
-                                      if (!blob) return;
-                                      const file = new File(
-                                        [blob],
-                                        `qr-${url.shortCode}.png`,
-                                        { type: "image/png" },
-                                      );
-                                      try {
-                                        await navigator.share({
-                                          title: `QR for ${computedShortUrl}`,
-                                          text: computedShortUrl,
-                                          files: [file],
-                                        });
-                                      } catch {
-                                        // User cancelled share or share not supported
-                                      }
-                                    }, "image/png");
+                                    const link = document.createElement("a");
+                                    link.download = `qr-${url.shortCode}.png`;
+                                    link.href = canvas.toDataURL("image/png");
+                                    link.click();
                                   }}
-                                  className="rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[10px] text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                                >
-                                  ⤴ share
-                                </button>
-                              )}
+                                  style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                                >Download</button>
+                                {typeof navigator.share === "function" && (
+                                  <button
+                                    onClick={async () => {
+                                      const wrapper = qrCanvasRef.current;
+                                      if (!wrapper) return;
+                                      const canvas = wrapper.querySelector("canvas");
+                                      if (!canvas) return;
+                                      canvas.toBlob(async blob => {
+                                        if (!blob) return;
+                                        const file = new File([blob], `qr-${url.shortCode}.png`, { type: "image/png" });
+                                        try { await navigator.share({ title: `QR for ${computedShortUrl}`, text: computedShortUrl, files: [file] }); } catch { /* cancelled */ }
+                                      }, "image/png");
+                                    }}
+                                    style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                                  >Share</button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         )}
 
-                        <button
-                          onClick={() => requestDelete(url)}
-                          className="w-full rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 transition hover:border-rose-400 sm:w-auto sm:py-1"
-                        >
-                          Delete
-                        </button>
+                        {/* Geo Analytics Panel */}
+                        {geoOpen && billing?.proActive && (
+                          <div style={{ marginTop: 14, padding: 16, borderRadius: 12, background: "rgba(248,250,252,0.8)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                            {geoLoading && <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Loading analytics…</p>}
+                            {geoError && <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>{geoError}</p>}
+                            {!geoLoading && !geoError && geoData && (
+                              <>
+                                <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
+                                  <div><p style={{ fontSize: 10, color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.08em" }}>Total</p><p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>{geoData.totalClicks}</p></div>
+                                  <div><p style={{ fontSize: 10, color: "#64748b", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.08em" }}>Country-tracked</p><p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>{geoData.countryTrackedClicks}</p></div>
+                                </div>
+                                {geoData.topCountries.length === 0 ? (
+                                  <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>No country data yet.</p>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                    {geoData.topCountries.map(row => {
+                                      const denom = geoData.countryTrackedClicks || 1;
+                                      const pct = Math.round((row.clicks / denom) * 100);
+                                      return (
+                                        <div key={row.countryCode} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#64748b", width: 28, flexShrink: 0 }}>{row.countryCode}</span>
+                                          <div style={{ flex: 1, height: 4, borderRadius: 3, background: "rgba(15,23,42,0.06)", overflow: "hidden" }}>
+                                            <div style={{ height: "100%", width: `${pct}%`, background: "#0f766e", borderRadius: 3 }} />
+                                          </div>
+                                          <span style={{ fontSize: 11, color: "#64748b", flexShrink: 0, width: 70, textAlign: "right" }}>{row.clicks} ({pct}%)</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right: click count badge */}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <p style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: "0 0 2px", lineHeight: 1 }}>{url.clickCount.toLocaleString()}</p>
+                        <p style={{ fontSize: 10, fontFamily: "ui-monospace, monospace", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>clicks</p>
                       </div>
                     </div>
                   </article>
@@ -1216,418 +1515,153 @@ export default function Dashboard() {
               })}
             </div>
           )}
-        </section>
+        </div>
+      </main>
 
-        {pendingDelete && (
-          <ConfirmDialog
-            isOpen={Boolean(pendingDelete)}
-            title="Delete this short link?"
-            description={`${pendingDelete.shortUrl}\nThis action cannot be undone.`}
-            confirmLabel={isDeletingLink ? "Deleting..." : "Delete link"}
-            tone="danger"
-            isConfirming={isDeletingLink}
-            onCancel={() => setPendingDelete(null)}
-            onConfirm={() => void confirmDelete()}
-          />
-        )}
+      {/* ── DIALOGS ── */}
+      {pendingDelete && (
         <ConfirmDialog
-          isOpen={isDeleteAccountDialogOpen}
-          title="Delete your account?"
-          description="This permanently deletes your account and all of your links. This action cannot be undone."
-          confirmLabel={isDeletingAccount ? "Deleting..." : "Delete account"}
+          isOpen={Boolean(pendingDelete)}
+          title="Delete this short link?"
+          description={`${pendingDelete.shortUrl}\nThis action cannot be undone.`}
+          confirmLabel={isDeletingLink ? "Deleting..." : "Delete link"}
           tone="danger"
-          isConfirming={isDeletingAccount}
-          onCancel={() => setIsDeleteAccountDialogOpen(false)}
-          onConfirm={() => void handleDeleteAccount()}
+          isConfirming={isDeletingLink}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void confirmDelete()}
         />
-        {isProfileOpen && (
-          <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-900/45 px-3 py-6 sm:px-4">
-            <div className="max-h-[calc(100svh-3rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_28px_70px_-40px_rgba(15,23,42,0.7)] sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-lg font-semibold text-slate-900">
-                  Profile Settings
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="rounded-full border border-slate-300 px-2.5 py-1 text-xs text-slate-700 transition hover:border-slate-500"
-                >
-                  Close
-                </button>
-              </div>
+      )}
+      <ConfirmDialog
+        isOpen={isDeleteAccountDialogOpen}
+        title="Delete your account?"
+        description="This permanently deletes your account and all of your links. This action cannot be undone."
+        confirmLabel={isDeletingAccount ? "Deleting..." : "Delete account"}
+        tone="danger"
+        isConfirming={isDeletingAccount}
+        onCancel={() => setIsDeleteAccountDialogOpen(false)}
+        onConfirm={() => void handleDeleteAccount()}
+      />
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setProfileTab("profile")}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    profileTab === "profile"
-                      ? "border-teal-700 bg-teal-700 text-white"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-slate-500"
-                  }`}
-                >
-                  Profile
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProfileTab("password")}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    profileTab === "password"
-                      ? "border-teal-700 bg-teal-700 text-white"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-slate-500"
-                  }`}
-                >
-                  Password
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProfileTab("danger")}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    profileTab === "danger"
-                      ? "border-rose-700 bg-rose-700 text-white"
-                      : "border-rose-300 bg-white text-rose-700 hover:border-rose-500"
-                  }`}
-                >
-                  Danger Zone
-                </button>
-              </div>
+      {/* ── PROFILE DRAWER ── */}
+      {isProfileOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 50, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.5)", backdropFilter: "blur(8px)", padding: 16, overflowY: "auto" }}
+          onClick={e => { if (e.target === e.currentTarget) setIsProfileOpen(false); }}
+        >
+          <div style={{ width: "100%", maxWidth: 480, borderRadius: 20, background: "#fff", border: "1px solid rgba(15,23,42,0.08)", padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.15)", maxHeight: "calc(100svh - 48px)", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: 0 }}>Profile Settings</h3>
+              <button onClick={() => setIsProfileOpen(false)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#64748b", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center" }}>×</button>
+            </div>
 
-              {isProfileLoading ? (
-                <p className="mt-4 text-sm text-slate-600">
-                  Loading profile...
-                </p>
-              ) : (
-                <>
-                  {profileTab === "profile" && (
-                    <form
-                      onSubmit={handleProfileSave}
-                      className="mt-4 space-y-3"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs text-slate-600">
-                          Use Edit to unlock profile fields.
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {isProfileEditing && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProfileFullName(initialProfileFullName);
-                                setProfileEmail(initialProfileEmail);
-                                setProfileError(null);
-                                setProfileMessage(null);
-                                setIsProfileEditing(false);
-                              }}
-                              className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-700 transition hover:border-slate-500"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setIsProfileEditing((prev) => !prev)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-700 transition hover:border-teal-600 hover:text-teal-700"
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5 fill-current"
-                            >
-                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l9.06-9.06.92.92L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.25 1.24 3.75 3.75 1.25-1.25z" />
-                            </svg>
-                            {isProfileEditing ? "Lock" : "Edit"}
-                          </button>
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 24, background: "rgba(15,23,42,0.04)", borderRadius: 10, padding: 4 }}>
+              {(["profile", "password", "danger"] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setProfileTab(tab)}
+                  style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "none", background: profileTab === tab ? (tab === "danger" ? "#dc2626" : "#fff") : "transparent", color: profileTab === tab ? (tab === "danger" ? "#fff" : "#0f172a") : "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", textTransform: "capitalize", boxShadow: profileTab === tab ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}
+                >{tab === "danger" ? "Danger" : tab.charAt(0).toUpperCase() + tab.slice(1)}</button>
+              ))}
+            </div>
+
+            {isProfileLoading ? (
+              <p style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: 32 }}>Loading profile…</p>
+            ) : (
+              <>
+                {/* Profile Tab */}
+                {profileTab === "profile" && (
+                  <form onSubmit={handleProfileSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between" }}>
+                      <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>Edit to unlock fields</p>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {isProfileEditing && (
+                          <button type="button" onClick={() => { setProfileFullName(initialProfileFullName); setProfileEmail(initialProfileEmail); setProfileError(null); setProfileMessage(null); setIsProfileEditing(false); }} style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(15,23,42,0.1)", background: "#fff", color: "#475569", fontSize: 11, cursor: "pointer" }}>Cancel</button>
+                        )}
+                        <button type="button" onClick={() => setIsProfileEditing(p => !p)} style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(20,184,166,0.3)", background: "rgba(20,184,166,0.1)", color: "#0f766e", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>{isProfileEditing ? "Lock" : "Edit"}</button>
+                      </div>
+                    </div>
+                    {[{ label: "Full name", value: profileFullName, setValue: setProfileFullName, type: "text" }, { label: "Email", value: profileEmail, setValue: setProfileEmail, type: "email" }].map(field => (
+                      <label key={field.label} style={{ display: "block" }}>
+                        <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{field.label}</span>
+                        <input
+                          type={field.type}
+                          value={field.value}
+                          onChange={e => field.setValue(e.target.value)}
+                          disabled={!isProfileEditing}
+                          required
+                          style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: `1px solid ${isProfileEditing ? "rgba(20,184,166,0.4)" : "rgba(15,23,42,0.1)"}`, background: isProfileEditing ? "#fff" : "rgba(15,23,42,0.02)", color: isProfileEditing ? "#0f172a" : "#64748b", fontSize: 13, outline: "none", transition: "all 0.2s", boxSizing: "border-box" }}
+                        />
+                      </label>
+                    ))}
+                    {profileError && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", color: "#b91c1c", fontSize: 12 }}>{profileError}</div>}
+                    {profileMessage && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.2)", color: "#059669", fontSize: 12 }}>{profileMessage}</div>}
+                    <button type="submit" disabled={!isProfileEditing || isProfileSaving || !profileFullName.trim() || !profileEmail.trim()} style={{ padding: "11px 0", borderRadius: 10, border: "none", background: !isProfileEditing || isProfileSaving ? "rgba(20,184,166,0.2)" : "#0f766e", color: "#fff", fontSize: 13, fontWeight: 600, cursor: !isProfileEditing ? "not-allowed" : "pointer" }}>{isProfileSaving ? "Saving…" : "Save profile"}</button>
+                    {profileEmailOtpChallengeId && (
+                      <div style={{ padding: 14, borderRadius: 10, background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                        <p style={{ fontSize: 12, color: "#d97706", marginBottom: 10 }}>Enter OTP sent to <strong>{profilePendingEmail || "new email"}</strong></p>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input type="text" value={profileEmailOtp} onChange={e => setProfileEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6-digit OTP" style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: "1px solid rgba(245,158,11,0.3)", background: "#fff", color: "#d97706", fontSize: 14, fontFamily: "ui-monospace, monospace", letterSpacing: "0.15em", outline: "none" }} />
+                          <button type="button" onClick={() => void handleVerifyProfileEmailOtp()} disabled={isProfileOtpVerifying || profileEmailOtp.length !== 6} style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "#d97706", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{isProfileOtpVerifying ? "…" : "Verify"}</button>
                         </div>
                       </div>
-                      <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">
-                          Full name
-                        </span>
-                        <input
-                          type="text"
-                          value={profileFullName}
-                          onChange={(e) => setProfileFullName(e.target.value)}
-                          disabled={!isProfileEditing}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-600"
-                          required
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">
-                          Email
-                        </span>
-                        <input
-                          type="email"
-                          value={profileEmail}
-                          onChange={(e) => setProfileEmail(e.target.value)}
-                          disabled={!isProfileEditing}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-600"
-                          required
-                        />
-                      </label>
-                      {profileError && (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                          {profileError}
-                        </div>
-                      )}
-                      {profileMessage && (
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                          {profileMessage}
-                        </div>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={
-                          !isProfileEditing ||
-                          isProfileSaving ||
-                          !profileFullName.trim() ||
-                          !profileEmail.trim()
-                        }
-                        className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {isProfileSaving ? "Saving..." : "Save profile"}
-                      </button>
+                    )}
+                  </form>
+                )}
 
-                      {profileEmailOtpChallengeId && (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                          <p className="text-xs text-amber-800">
-                            Enter OTP sent to{" "}
-                            <span className="font-semibold">
-                              {profilePendingEmail || "new email"}
-                            </span>{" "}
-                            to confirm email update.
-                          </p>
-                          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <input
-                              type="text"
-                              value={profileEmailOtp}
-                              onChange={(e) =>
-                                setProfileEmailOtp(
-                                  e.target.value.replace(/\D/g, "").slice(0, 6),
-                                )
-                              }
-                              placeholder="6-digit OTP"
-                              className="w-full rounded-xl border border-amber-300 bg-white px-4 py-2 text-sm tracking-[0.15em] outline-none transition focus:border-amber-500 sm:max-w-[220px]"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={() => void handleVerifyProfileEmailOtp()}
-                              disabled={
-                                isProfileOtpVerifying ||
-                                profileEmailOtp.length !== 6
-                              }
-                              className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {isProfileOtpVerifying
-                                ? "Verifying..."
-                                : "Verify OTP"}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </form>
-                  )}
-
-                  {profileTab === "password" && (
-                    <form
-                      onSubmit={handlePasswordSave}
-                      className="mt-4 space-y-3"
-                    >
-                      <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">
-                          Current password
-                        </span>
-                        <div className="relative">
+                {/* Password Tab */}
+                {profileTab === "password" && (
+                  <form onSubmit={handlePasswordSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {[
+                      { label: "Current password", value: currentPassword, setValue: setCurrentPassword, show: showCurrentPassword, setShow: setShowCurrentPassword },
+                      { label: "New password", value: newPassword, setValue: setNewPassword, show: showNewPassword, setShow: setShowNewPassword },
+                      { label: "Confirm new password", value: confirmNewPassword, setValue: setConfirmNewPassword, show: showConfirmNewPassword, setShow: setShowConfirmNewPassword },
+                    ].map(field => (
+                      <label key={field.label} style={{ display: "block" }}>
+                        <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{field.label}</span>
+                        <div style={{ position: "relative" }}>
                           <input
-                            type={showCurrentPassword ? "text" : "password"}
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-14 text-sm outline-none transition focus:border-teal-600"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowCurrentPassword((prev) => !prev)
-                            }
-                            className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-slate-700"
-                            aria-label={
-                              showCurrentPassword
-                                ? "Hide current password"
-                                : "Show current password"
-                            }
-                          >
-                            {showCurrentPassword ? (
-                              <svg
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
-                              >
-                                <path d="M3 3l18 18" />
-                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-                                <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
-                                <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
-                              </svg>
-                            ) : (
-                              <svg
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
-                              >
-                                <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
-                                <circle cx="12" cy="12" r="3" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      </label>
-                      <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">
-                          New password
-                        </span>
-                        <div className="relative">
-                          <input
-                            type={showNewPassword ? "text" : "password"}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
+                            type={field.show ? "text" : "password"}
+                            value={field.value}
+                            onChange={e => field.setValue(e.target.value)}
                             minLength={8}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-14 text-sm outline-none transition focus:border-teal-600"
                             required
+                            style={{ width: "100%", padding: "11px 44px 11px 14px", borderRadius: 10, border: "1px solid rgba(15,23,42,0.15)", background: "#fff", color: "#0f172a", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                            onFocus={e => (e.target.style.borderColor = "#14b8a6")}
+                            onBlur={e => (e.target.style.borderColor = "rgba(15,23,42,0.15)")}
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPassword((prev) => !prev)}
-                            className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-slate-700"
-                            aria-label={
-                              showNewPassword
-                                ? "Hide new password"
-                                : "Show new password"
-                            }
-                          >
-                            {showNewPassword ? (
-                              <svg
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
-                              >
-                                <path d="M3 3l18 18" />
-                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-                                <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
-                                <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
-                              </svg>
+                          <button type="button" onClick={() => field.setShow(p => !p)} style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 42, background: "none", border: "none", color: "#64748b", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} aria-label={field.show ? "Hide" : "Show"}>
+                            {field.show ? (
+                              <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: "none", stroke: "currentColor", strokeWidth: 1.8 }}><path d="M3 3l18 18" /><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" /><path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" /><path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" /></svg>
                             ) : (
-                              <svg
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
-                              >
-                                <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
-                                <circle cx="12" cy="12" r="3" />
-                              </svg>
+                              <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, fill: "none", stroke: "currentColor", strokeWidth: 1.8 }}><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
                             )}
                           </button>
                         </div>
                       </label>
-                      <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-slate-600">
-                          Confirm new password
-                        </span>
-                        <div className="relative">
-                          <input
-                            type={showConfirmNewPassword ? "text" : "password"}
-                            value={confirmNewPassword}
-                            onChange={(e) =>
-                              setConfirmNewPassword(e.target.value)
-                            }
-                            minLength={8}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-14 text-sm outline-none transition focus:border-teal-600"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowConfirmNewPassword((prev) => !prev)
-                            }
-                            className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-slate-700"
-                            aria-label={
-                              showConfirmNewPassword
-                                ? "Hide confirm new password"
-                                : "Show confirm new password"
-                            }
-                          >
-                            {showConfirmNewPassword ? (
-                              <svg
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
-                              >
-                                <path d="M3 3l18 18" />
-                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-                                <path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-4.1 4.8" />
-                                <path d="M6.6 6.7C3.7 8.6 2 12 2 12s4 8 10 8a10.8 10.8 0 0 0 4.1-.8" />
-                              </svg>
-                            ) : (
-                              <svg
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                                className="h-4 w-4 fill-none stroke-current stroke-[1.8]"
-                              >
-                                <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z" />
-                                <circle cx="12" cy="12" r="3" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      </label>
-                      {passwordError && (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                          {passwordError}
-                        </div>
-                      )}
-                      {passwordMessage && (
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                          {passwordMessage}
-                        </div>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={
-                          isPasswordSaving ||
-                          !currentPassword ||
-                          !newPassword ||
-                          !confirmNewPassword
-                        }
-                        className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {isPasswordSaving ? "Updating..." : "Update password"}
-                      </button>
-                    </form>
-                  )}
+                    ))}
+                    {passwordError && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", color: "#b91c1c", fontSize: 12 }}>{passwordError}</div>}
+                    {passwordMessage && <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.2)", color: "#059669", fontSize: 12 }}>{passwordMessage}</div>}
+                    <button type="submit" disabled={isPasswordSaving || !currentPassword || !newPassword || !confirmNewPassword} style={{ padding: "11px 0", borderRadius: 10, border: "none", background: isPasswordSaving || !currentPassword || !newPassword || !confirmNewPassword ? "rgba(20,184,166,0.2)" : "#0f766e", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{isPasswordSaving ? "Updating…" : "Update password"}</button>
+                  </form>
+                )}
 
-                  {profileTab === "danger" && (
-                    <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                      <p className="text-sm font-semibold text-rose-800">
-                        Delete Account
-                      </p>
-                      <p className="mt-1 text-xs text-rose-700">
-                        This permanently removes your account and all links.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={openDeleteAccountConfirm}
-                        className="mt-3 rounded-xl border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
-                      >
-                        Delete account
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                {/* Danger Tab */}
+                {profileTab === "danger" && (
+                  <div style={{ padding: 20, borderRadius: 12, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: "#b91c1c", margin: "0 0 6px" }}>Delete Account</p>
+                    <p style={{ fontSize: 12, color: "#dc2626", margin: "0 0 16px" }}>This permanently removes your account and all links. This cannot be undone.</p>
+                    <button onClick={openDeleteAccountConfirm} style={{ padding: "10px 20px", borderRadius: 9, border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.1)", color: "#b91c1c", fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.15)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.1)"; }}
+                    >Delete my account</button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </div>
   );
 }

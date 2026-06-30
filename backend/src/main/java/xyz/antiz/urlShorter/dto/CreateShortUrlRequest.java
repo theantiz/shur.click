@@ -4,6 +4,7 @@ public class CreateShortUrlRequest {
 
     private String longUrl;
     private String customAlias; // optional
+    private String shortDomainMode; // optional: shur or custom
 
     public CreateShortUrlRequest() {
     }
@@ -27,5 +28,13 @@ public class CreateShortUrlRequest {
 
     public void setCustomAlias(String customAlias) {
         this.customAlias = customAlias;
+    }
+
+    public String getShortDomainMode() {
+        return shortDomainMode;
+    }
+
+    public void setShortDomainMode(String shortDomainMode) {
+        this.shortDomainMode = shortDomainMode;
     }
 }
