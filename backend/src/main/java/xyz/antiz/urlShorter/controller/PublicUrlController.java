@@ -1,21 +1,21 @@
 package xyz.antiz.urlShorter.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import xyz.antiz.urlShorter.dto.ClaimGuestUrlsRequest;
 import xyz.antiz.urlShorter.dto.CreateShortUrlRequest;
 import xyz.antiz.urlShorter.dto.CreateShortUrlResponse;
-import xyz.antiz.urlShorter.dto.ClaimGuestUrlsRequest;
 import xyz.antiz.urlShorter.dto.UrlGeoAnalyticsResponse;
 import xyz.antiz.urlShorter.dto.UrlStatsResponse;
 import xyz.antiz.urlShorter.entity.ShortUrl;
+import xyz.antiz.urlShorter.service.CustomDomainService;
 import xyz.antiz.urlShorter.service.ShortUrlService;
 import xyz.antiz.urlShorter.util.IstDateTime;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import jakarta.validation.Valid;
-import jakarta.servlet.http.HttpServletRequest;
 
 import java.net.URI;
 import java.util.List;
@@ -26,23 +26,53 @@ import java.util.Optional;
 @RestController
 public class PublicUrlController {
 
-    private final ShortUrlService service;
+    private final ShortUrlService shortUrlService;
+    private final CustomDomainService customDomainService;
 
-    public PublicUrlController(ShortUrlService service) {
-        this.service = service;
+    private static final String DEFAULT_DOMAIN = "shur.click";
+
+    public PublicUrlController(ShortUrlService shortUrlService,
+                               CustomDomainService customDomainService) {
+        this.shortUrlService = shortUrlService;
+        this.customDomainService = customDomainService;
     }
 
-    // Redirect short URL to long URL
-    // Use regex to prevent matching /api, /favicon.ico, etc.
     @GetMapping("/{code:^(?!api$)[a-zA-Z0-9_-]{3,20}$}")
     public ResponseEntity<Object> redirect(@PathVariable String code, HttpServletRequest request) {
         String countryCode = resolveCountryCode(request);
+        String host = request.getServerName();
 
-        return service.resolveAndTrack(code, countryCode)
+        // Default domain: global lookup
+        if (isDefaultHost(host)) {
+            return shortUrlService.resolveAndTrack(code, countryCode)
+                    .map(longUrl -> ResponseEntity.status(HttpStatus.FOUND)
+                            .location(URI.create(longUrl))
+                            .build())
+                    .orElseGet(() -> ResponseEntity.notFound().build());
+        }
+
+        // Custom domain: owner-scoped lookup
+        Optional<Long> ownerIdOpt = customDomainService.resolveOwnerByDomain(host);
+        if (ownerIdOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Long ownerId = ownerIdOpt.get();
+        return shortUrlService.resolveAndTrackForOwner(code, ownerId, countryCode)
                 .map(longUrl -> ResponseEntity.status(HttpStatus.FOUND)
                         .location(URI.create(longUrl))
                         .build())
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private boolean isDefaultHost(String host) {
+        if (host == null || host.isBlank()) {
+            return true;
+        }
+        return DEFAULT_DOMAIN.equalsIgnoreCase(host)
+                || ("www." + DEFAULT_DOMAIN).equalsIgnoreCase(host)
+                || "localhost".equalsIgnoreCase(host)
+                || "127.0.0.1".equals(host);
     }
 
     private String resolveCountryCode(HttpServletRequest request) {
@@ -103,10 +133,8 @@ public class PublicUrlController {
         }
         return null;
     }
-
 }
 
-// Authenticated endpoints - requires authentication
 @RestController
 @RequestMapping("/api/urls")
 class AuthShortUrlController {
@@ -126,22 +154,17 @@ class AuthShortUrlController {
     public ResponseEntity<CreateShortUrlResponse> create(
             @RequestBody CreateShortUrlRequest request,
             @RequestAttribute(value = "userId", required = false) Long userId,
-            @RequestHeader(value = "X-Guest-Token", required = false) String guestToken) {
+            @RequestHeader(value = "X-Guest-Token", required = false) String guestToken
+    ) {
+        ShortUrl saved = service.createShortUrl(
+                request.getLongUrl(),
+                request.getCustomAlias(),
+                userId,
+                guestToken,
+                request.getShortDomainMode()
+        );
 
-        ShortUrl saved = service.createShortUrl(request.getLongUrl(), request.getCustomAlias(), userId, guestToken);
-
-        String shortUrl = buildShortUrl(saved.getShortCode());
-
-        CreateShortUrlResponse body = new CreateShortUrlResponse(
-                saved.getId(),
-                saved.getShortCode(),
-                shortUrl,
-                saved.getLongUrl(),
-                saved.getClickCount(),
-                IstDateTime.format(saved.getCreatedAt()),
-                IstDateTime.format(saved.getLastAccessedAt()));
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(body);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
     }
 
     @PostMapping("/claim-guest")
@@ -155,20 +178,9 @@ class AuthShortUrlController {
 
     @GetMapping
     public ResponseEntity<List<CreateShortUrlResponse>> getUserUrls(@RequestAttribute("userId") Long userId) {
-        List<ShortUrl> urls = service.getUserUrls(userId);
-
-        List<CreateShortUrlResponse> response = urls.stream()
-                .map(url -> {
-                    String shortUrl = buildShortUrl(url.getShortCode());
-                    return new CreateShortUrlResponse(
-                            url.getId(),
-                            url.getShortCode(),
-                            shortUrl,
-                            url.getLongUrl(),
-                            url.getClickCount(),
-                            IstDateTime.format(url.getCreatedAt()),
-                            IstDateTime.format(url.getLastAccessedAt()));
-                })
+        List<CreateShortUrlResponse> response = service.getUserUrls(userId)
+                .stream()
+                .map(this::toResponse)
                 .toList();
 
         return ResponseEntity.ok(response);
@@ -198,25 +210,69 @@ class AuthShortUrlController {
         return ResponseEntity.ok(service.getGeoAnalyticsForUser(code, userId));
     }
 
-    private String buildShortUrl(String code) {
-        String base = publicBaseUrl == null ? "" : publicBaseUrl.trim();
-        if (!base.isEmpty()) {
-            if (base.endsWith("/")) {
-                base = base.substring(0, base.length() - 1);
-            }
-            return base + "/" + code;
-        }
+    @PatchMapping("/{id}/switch-to-shur")
+    public ResponseEntity<CreateShortUrlResponse> switchToShurDomain(
+            @PathVariable Long id,
+            @RequestAttribute("userId") Long userId
+    ) {
+        ShortUrl updated = service.switchToShurDomain(id, userId);
+        return ResponseEntity.ok(toResponse(updated));
+    }
 
-        return ServletUriComponentsBuilder
-                .fromCurrentContextPath()
-                .path("/{code}")
-                .buildAndExpand(code)
-                .toUriString();
+    @PatchMapping("/{id}/switch-to-custom")
+    public ResponseEntity<CreateShortUrlResponse> switchToCustomDomain(
+            @PathVariable Long id,
+            @RequestAttribute("userId") Long userId
+    ) {
+        ShortUrl updated = service.switchToCustomDomain(id, userId);
+        return ResponseEntity.ok(toResponse(updated));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id, @RequestAttribute("userId") Long userId) {
+    public ResponseEntity<Void> delete(@PathVariable Long id, @RequestAttribute("userId") Long userId) {
         service.deleteUrl(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    private CreateShortUrlResponse toResponse(ShortUrl url) {
+        return new CreateShortUrlResponse(
+                url.getId(),
+                url.getShortCode(),
+                buildShortUrl(url),
+                resolveBaseUrl(url),
+                url.getLongUrl(),
+                url.getClickCount(),
+                IstDateTime.format(url.getCreatedAt()),
+                IstDateTime.format(url.getLastAccessedAt()));
+    }
+
+    private String buildShortUrl(ShortUrl url) {
+        return resolveBaseUrl(url) + "/" + url.getShortCode();
+    }
+
+    private String resolveBaseUrl(ShortUrl url) {
+        String savedBase = url.getShortBaseUrl();
+        if (savedBase != null && !savedBase.isBlank()) {
+            return trimTrailingSlash(savedBase);
+        }
+
+        String base = publicBaseUrl == null ? "" : publicBaseUrl.trim();
+        if (!base.isEmpty()) {
+            return trimTrailingSlash(base);
+        }
+
+        String currentBase = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .build()
+                .toUriString();
+        return trimTrailingSlash(currentBase);
+    }
+
+    private String trimTrailingSlash(String base) {
+        String normalized = base.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 }

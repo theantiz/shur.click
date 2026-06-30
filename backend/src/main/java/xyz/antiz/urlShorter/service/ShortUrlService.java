@@ -1,16 +1,19 @@
 package xyz.antiz.urlShorter.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
-import xyz.antiz.urlShorter.entity.ShortUrl;
-import xyz.antiz.urlShorter.entity.User;
-import xyz.antiz.urlShorter.entity.UrlClickEvent;
-import xyz.antiz.urlShorter.dto.UrlGeoAnalyticsResponse;
-import xyz.antiz.urlShorter.repo.ShortUrlRepository;
-import xyz.antiz.urlShorter.repo.UserRepository;
-import xyz.antiz.urlShorter.repo.UrlClickEventRepository;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import xyz.antiz.urlShorter.dto.UrlGeoAnalyticsResponse;
+import xyz.antiz.urlShorter.entity.CustomDomain;
+import xyz.antiz.urlShorter.entity.DomainStatus;
+import xyz.antiz.urlShorter.entity.ShortUrl;
+import xyz.antiz.urlShorter.entity.UrlClickEvent;
+import xyz.antiz.urlShorter.entity.User;
+import xyz.antiz.urlShorter.repo.CustomDomainRepository;
+import xyz.antiz.urlShorter.repo.ShortUrlRepository;
+import xyz.antiz.urlShorter.repo.UrlClickEventRepository;
+import xyz.antiz.urlShorter.repo.UserRepository;
 import xyz.antiz.urlShorter.util.IstDateTime;
 
 import java.security.SecureRandom;
@@ -24,6 +27,8 @@ public class ShortUrlService {
     private final UserRepository users;
     private final UrlClickEventRepository clickEvents;
     private final UrlLookupCacheService urlLookupCache;
+    private final CustomDomainRepository customDomains;
+    private final String publicBaseUrl;
     private final SecureRandom random = new SecureRandom();
     private static final String CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final int FREE_TIER_LINK_LIMIT = 5;
@@ -37,20 +42,31 @@ public class ShortUrlService {
             ShortUrlRepository repo,
             UserRepository users,
             UrlClickEventRepository clickEvents,
-            UrlLookupCacheService urlLookupCache
+            UrlLookupCacheService urlLookupCache,
+            CustomDomainRepository customDomains,
+            @Value("${app.public.base-url:https://shur.click}") String publicBaseUrl
     ) {
         this.repo = repo;
         this.users = users;
         this.clickEvents = clickEvents;
         this.urlLookupCache = urlLookupCache;
+        this.customDomains = customDomains;
+        this.publicBaseUrl = publicBaseUrl;
     }
 
     @Transactional
-    public ShortUrl createShortUrl(String longUrl, String customAlias, Long userId, String guestToken) {
+    public ShortUrl createShortUrl(
+            String longUrl,
+            String customAlias,
+            Long userId,
+            String guestToken,
+            String shortDomainMode
+    ) {
 
         String normalized = normalize(longUrl);
         Long ownerId = resolveOwnerId(userId);
         String normalizedGuestToken = userId == null ? normalizeGuestToken(guestToken) : null;
+        String shortBaseUrl = resolveShortBaseUrl(userId, ownerId, shortDomainMode);
         enforcePlanLimitIfNeeded(userId, ownerId, normalizedGuestToken);
 
         // if alias is provided, use it
@@ -71,6 +87,7 @@ public class ShortUrlService {
             row.setUserId(ownerId);
             row.setLongUrl(normalized);
             row.setShortCode(alias);
+            row.setShortBaseUrl(shortBaseUrl);
             row.setGuestToken(normalizedGuestToken);
             row.setClickCount(0L);
             row.setCreatedAt(IstDateTime.now());
@@ -87,6 +104,7 @@ public class ShortUrlService {
         row.setUserId(ownerId);
         row.setLongUrl(normalized);
         row.setShortCode(code);
+        row.setShortBaseUrl(shortBaseUrl);
         row.setGuestToken(normalizedGuestToken);
         row.setClickCount(0L);
         row.setCreatedAt(IstDateTime.now());
@@ -106,6 +124,18 @@ public class ShortUrlService {
 
         Optional<ShortUrl> fromDb = repo.findByShortCode(code);
         fromDb.ifPresent(url -> {
+            urlLookupCache.put(url.getId(), url.getShortCode(), url.getLongUrl());
+            trackClick(url.getId(), countryCode);
+        });
+        return fromDb.map(ShortUrl::getLongUrl);
+    }
+
+    // owner-aware resolution for custom domains
+    @Transactional
+    public Optional<String> resolveAndTrackForOwner(String code, Long ownerId, String countryCode) {
+        Optional<ShortUrl> fromDb = repo.findByShortCodeAndUserId(code, ownerId);
+        fromDb.ifPresent(url -> {
+            // safe with globally-unique codes; if that ever changes, remove this cache write
             urlLookupCache.put(url.getId(), url.getShortCode(), url.getLongUrl());
             trackClick(url.getId(), countryCode);
         });
@@ -172,6 +202,54 @@ public class ShortUrlService {
         });
     }
 
+    @Transactional
+    public ShortUrl switchToShurDomain(Long urlId, Long userId) {
+        ShortUrl url = repo.findById(urlId)
+                .orElseThrow(() -> new IllegalArgumentException("Short URL not found"));
+
+        if (!url.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Short URL not found");
+        }
+
+        String shurBaseUrl = normalizeBaseUrl(publicBaseUrl);
+        if (repo.existsByShortCodeAndShortBaseUrlAndIdNot(url.getShortCode(), shurBaseUrl, url.getId())) {
+            throw new IllegalStateException("Alias URL name already exists on shur.click.");
+        }
+
+        url.setShortBaseUrl(shurBaseUrl);
+        return repo.save(url);
+    }
+
+    @Transactional
+    public ShortUrl switchToCustomDomain(Long urlId, Long userId) {
+        ShortUrl url = repo.findById(urlId)
+                .orElseThrow(() -> new IllegalArgumentException("Short URL not found"));
+
+        if (!url.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Short URL not found");
+        }
+
+        User owner = users.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (!owner.isProActive()) {
+            throw new IllegalStateException("Custom domains require an active Pro plan.");
+        }
+
+        CustomDomain domain = customDomains.findByUserId(userId)
+                .stream()
+                .filter(d -> d.getStatus() == DomainStatus.VERIFIED)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No verified custom domain found. Add and verify one first."));
+
+        String customBaseUrl = "https://" + domain.getDomain();
+        if (repo.existsByShortCodeAndShortBaseUrlAndIdNot(url.getShortCode(), customBaseUrl, url.getId())) {
+            throw new IllegalStateException("Alias already exists on your custom domain.");
+        }
+
+        url.setShortBaseUrl(customBaseUrl);
+        return repo.save(url);
+    }
+
     private void trackClick(Long shortUrlId, String countryCode) {
         repo.incrementClickAndSetLastAccessedAt(shortUrlId, IstDateTime.now());
         clickEvents.save(new UrlClickEvent(shortUrlId, normalizeCountryCode(countryCode)));
@@ -204,6 +282,38 @@ public class ShortUrlService {
             u = "https://" + u;
         }
         return u;
+    }
+
+    private String resolveShortBaseUrl(Long requestedUserId, Long ownerId, String shortDomainMode) {
+        if (!"custom".equalsIgnoreCase(shortDomainMode == null ? "" : shortDomainMode.trim())) {
+            return normalizeBaseUrl(publicBaseUrl);
+        }
+
+        if (requestedUserId == null) {
+            throw new IllegalStateException("Custom domains require an active Pro plan.");
+        }
+
+        User owner = users.findById(ownerId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (!owner.isProActive()) {
+            throw new IllegalStateException("Custom domains require an active Pro plan.");
+        }
+
+        CustomDomain domain = customDomains.findByUserId(ownerId)
+                .stream()
+                .filter(d -> d.getStatus() == DomainStatus.VERIFIED)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Verify a custom domain before creating links with it."));
+
+        return "https://" + domain.getDomain();
+    }
+
+    private String normalizeBaseUrl(String baseUrl) {
+        String base = baseUrl == null || baseUrl.isBlank() ? "https://shur.click" : baseUrl.trim();
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base;
     }
 
     private String normalizeCountryCode(String countryCode) {
@@ -239,7 +349,6 @@ public class ShortUrlService {
             if (guestUsed >= GUEST_LINK_LIMIT) {
                 throw new IllegalStateException(
                         "Guest limit reached (2 links). Please sign in to keep these links and create more."
-
                 );
             }
             return;

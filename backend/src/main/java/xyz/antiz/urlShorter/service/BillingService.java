@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 public class BillingService {
 
     public static final int FREE_TIER_LINK_LIMIT = 5;
-    public static final double PRO_MONTHLY_PRICE_USD = 2.0;
+    public static final double PRO_MONTHLY_PRICE_USD = 5.0;
 
     private final UserRepository users;
     private final ShortUrlRepository urls;
@@ -78,6 +78,15 @@ public class BillingService {
         activateProMonthly(user);
     }
 
+    // >>> ADD THIS <<<
+    @Transactional(readOnly = true)
+    public boolean isProActive(Long userId) {
+        User user = users.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return user.isProActive();
+    }
+    // >>> END ADDITION <<<
+
     private void activateProMonthly(User user) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime base = user.getProExpiresAt() != null && user.getProExpiresAt().isAfter(now)
@@ -106,7 +115,6 @@ public class BillingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This promo code has reached its usage limit");
         }
 
-        // Prevent the same user from redeeming the same code more than once
         if (promoRedemptions.existsByUserIdAndPromoCodeId(userId, promo.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You have already redeemed this promo code");
         }
@@ -114,17 +122,14 @@ public class BillingService {
         User user = users.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Grant durationMonths × 30 days of Pro, stacking on top of any existing Pro expiry
         for (int i = 0; i < promo.getDurationMonths(); i++) {
             activateProMonthly(user);
-            // Reload so each call stacks correctly
             user = users.findById(userId).orElseThrow();
         }
 
         promo.setUseCount(promo.getUseCount() + 1);
         promoCodes.save(promo);
 
-        // Record the redemption so this user cannot redeem the same code again
         promoRedemptions.save(new PromoRedemption(userId, promo.getId()));
 
         return new RedeemPromoResponse(

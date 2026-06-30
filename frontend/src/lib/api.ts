@@ -1,5 +1,5 @@
 const DEFAULT_PRODUCTION_API_BASE_URL = "https://api.shur.click";
-const DEFAULT_DEV_API_BASE_URL = "http://localhost:5001"; // fixed name
+const DEFAULT_DEV_API_BASE_URL = "http://localhost:2000"; // fixed name
 
 const configuredApiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.toString().replace(/\/+$/, "") ?? "";
