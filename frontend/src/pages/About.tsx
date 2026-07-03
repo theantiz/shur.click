@@ -22,7 +22,7 @@ export default function About() {
           className="text-teal-700 hover:text-teal-800"
           href="mailto:jaychothiyawala04@gmail.com"
         >
-          jaychothiyawala04@gmail.com
+          jay@antiz.xyz
         </a>
       </p>
     </InfoPageShell>

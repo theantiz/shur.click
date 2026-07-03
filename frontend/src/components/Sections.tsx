@@ -91,7 +91,7 @@ export default function Sections() {
           <article className="rounded-2xl border border-teal-200 bg-teal-50/70 p-5">
             <p className="font-mono text-xs text-teal-700">PRO</p>
             <h4 className="mt-1 text-xl font-semibold text-slate-900">
-              $2 / month
+              $5 / month
             </h4>
             <p className="mt-2 text-sm text-slate-700">
               Unlimited link creation with the same dashboard workflow and
