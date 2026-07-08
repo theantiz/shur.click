@@ -411,16 +411,32 @@ export default function TerminalShortener() {
               </button>
             </div>
 
-            <input
-              type="text"
-              value={customCode}
-              onChange={(e) =>
-                setCustomCode(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))
-              }
-              placeholder="Custom alias (optional)"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-teal-500"
-              maxLength={20}
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+              <input
+                type="text"
+                value={customCode}
+                onChange={(e) =>
+                  setCustomCode(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))
+                }
+                placeholder="Custom alias (optional)"
+                className="w-full sm:w-1/2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-teal-500"
+                maxLength={20}
+              />
+              
+              <div className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-3 sm:w-1/2">
+                <input 
+                  type="checkbox" 
+                  disabled
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-600 disabled:opacity-50"
+                />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-slate-700 opacity-70">Mask URL (Cloak)</span>
+                  <span className="text-xs text-slate-500">
+                    Requires a verified free account. <Link to="/auth/signup" className="text-teal-600 hover:underline">Sign up</Link>
+                  </span>
+                </div>
+              </div>
+            </div>
           </form>
 
           {error && <ErrorAlert message={error} />}

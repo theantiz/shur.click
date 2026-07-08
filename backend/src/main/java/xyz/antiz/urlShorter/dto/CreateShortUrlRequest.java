@@ -5,6 +5,7 @@ public class CreateShortUrlRequest {
     private String longUrl;
     private String customAlias; // optional
     private String shortDomainMode; // optional: shur or custom
+    private Boolean masked = false; // optional
 
     public CreateShortUrlRequest() {
     }
@@ -36,5 +37,13 @@ public class CreateShortUrlRequest {
 
     public void setShortDomainMode(String shortDomainMode) {
         this.shortDomainMode = shortDomainMode;
+    }
+
+    public Boolean getMasked() {
+        return masked != null ? masked : false;
+    }
+
+    public void setMasked(Boolean masked) {
+        this.masked = masked;
     }
 }

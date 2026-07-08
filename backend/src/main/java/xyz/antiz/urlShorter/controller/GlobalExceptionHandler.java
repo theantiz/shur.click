@@ -11,6 +11,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
+import xyz.antiz.urlShorter.exception.MaskingQuotaExceededException;
+import xyz.antiz.urlShorter.exception.MaskingRequiresAuthException;
+import xyz.antiz.urlShorter.exception.MaskingTargetFlaggedException;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -58,6 +62,24 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "Access denied", request);
     }
 
+    @ExceptionHandler(MaskingQuotaExceededException.class)
+    public ResponseEntity<?> maskingQuotaExceeded(MaskingQuotaExceededException ex, HttpServletRequest request) {
+        log.warn("Masking quota exceeded: method={} path={} message={}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return buildWithCode(HttpStatus.FORBIDDEN, "MASKING_QUOTA_EXCEEDED", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(MaskingRequiresAuthException.class)
+    public ResponseEntity<?> maskingRequiresAuth(MaskingRequiresAuthException ex, HttpServletRequest request) {
+        log.warn("Masking requires auth: method={} path={} message={}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return buildWithCode(HttpStatus.UNAUTHORIZED, "MASKING_REQUIRES_AUTH", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(MaskingTargetFlaggedException.class)
+    public ResponseEntity<?> maskingTargetFlagged(MaskingTargetFlaggedException ex, HttpServletRequest request) {
+        log.warn("Masking target flagged: method={} path={} message={}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return buildWithCode(HttpStatus.UNPROCESSABLE_ENTITY, "MASKING_TARGET_FLAGGED", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> unknown(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception: method={} path={}", request.getMethod(), request.getRequestURI(), ex);
@@ -69,6 +91,16 @@ public class GlobalExceptionHandler {
                 "timestamp", Instant.now().toString(),
                 "status", status.value(),
                 "error", message,
+                "path", request.getRequestURI()
+        ));
+    }
+
+    private ResponseEntity<Map<String, Object>> buildWithCode(HttpStatus status, String errorCode, String message, HttpServletRequest request) {
+        return ResponseEntity.status(status).body(Map.of(
+                "timestamp", Instant.now().toString(),
+                "status", status.value(),
+                "error", errorCode,
+                "message", message,
                 "path", request.getRequestURI()
         ));
     }

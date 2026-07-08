@@ -205,7 +205,9 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid OTP challenge state");
         }
 
-        User user = users.save(new User(challenge.getPendingFullName(), challenge.getEmail(), challenge.getPendingPasswordHash()));
+        User user = new User(challenge.getPendingFullName(), challenge.getEmail(), challenge.getPendingPasswordHash());
+        user.setVerified(true);
+        user = users.save(user);
         String token = jwt.createToken(user.getId(), user.getEmail());
         return new AuthResponse(token, user.getId(), user.getEmail(), user.getFullName());
     }

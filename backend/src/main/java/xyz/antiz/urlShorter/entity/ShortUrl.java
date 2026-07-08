@@ -36,6 +36,12 @@ public class ShortUrl {
 
     private LocalDateTime lastAccessedAt;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean masked = false;
+
+    @Column(name = "masked_at")
+    private java.time.Instant maskedAt;
+
     public ShortUrl() {
     }
 
@@ -58,6 +64,7 @@ public class ShortUrl {
         this.clickCount = clickCount;
         this.createdAt = createdAt;
         this.lastAccessedAt = lastAccessedAt;
+        this.masked = false;
     }
 
     public Long getId() {
@@ -130,5 +137,21 @@ public class ShortUrl {
 
     public void setLastAccessedAt(LocalDateTime lastAccessedAt) {
         this.lastAccessedAt = lastAccessedAt;
+    }
+
+    public Boolean getMasked() {
+        return masked != null ? masked : false;
+    }
+
+    public void setMasked(Boolean masked) {
+        this.masked = masked;
+    }
+
+    public java.time.Instant getMaskedAt() {
+        return maskedAt;
+    }
+
+    public void setMaskedAt(java.time.Instant maskedAt) {
+        this.maskedAt = maskedAt;
     }
 }
