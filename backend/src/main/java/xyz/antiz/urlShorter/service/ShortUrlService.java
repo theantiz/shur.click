@@ -24,6 +24,8 @@ import xyz.antiz.urlShorter.util.IstDateTime;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 public class ShortUrlService {
@@ -41,6 +43,7 @@ public class ShortUrlService {
     private final int maskingFreeLimit;
     private final int maskingProLimit;
     private final SecureRandom random = new SecureRandom();
+    private final ExecutorService trackingExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
     private static final String CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final int FREE_TIER_LINK_LIMIT = 5;
     private static final int GUEST_LINK_LIMIT = 2;
@@ -152,7 +155,6 @@ public class ShortUrlService {
         return saved;
     }
 
-    @Transactional
     public Optional<ResolvedUrl> resolveAndTrack(String code, String countryCode) {
         Optional<UrlLookupCacheService.LookupValue> cached = urlLookupCache.get(code);
         if (cached.isPresent()) {
@@ -169,7 +171,6 @@ public class ShortUrlService {
     }
 
     // owner-aware resolution for custom domains
-    @Transactional
     public Optional<ResolvedUrl> resolveAndTrackForOwner(String code, Long ownerId, String countryCode) {
         Optional<ShortUrl> fromDb = repo.findByShortCodeAndUserId(code, ownerId);
         fromDb.ifPresent(url -> {
@@ -288,8 +289,14 @@ public class ShortUrlService {
     }
 
     private void trackClick(Long shortUrlId, String countryCode) {
-        repo.incrementClickAndSetLastAccessedAt(shortUrlId, IstDateTime.now());
-        clickEvents.save(new UrlClickEvent(shortUrlId, normalizeCountryCode(countryCode)));
+        trackingExecutor.submit(() -> {
+            try {
+                repo.incrementClickAndSetLastAccessedAt(shortUrlId, IstDateTime.now());
+                clickEvents.save(new UrlClickEvent(shortUrlId, normalizeCountryCode(countryCode)));
+            } catch (Exception e) {
+                // Log and ignore to prevent blocking
+            }
+        });
     }
 
     private String generateUniqueCode() {

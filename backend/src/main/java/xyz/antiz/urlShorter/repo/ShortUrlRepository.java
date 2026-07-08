@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 import xyz.antiz.urlShorter.entity.ShortUrl;
 
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
 
     List<ShortUrl> findByGuestTokenAndUserId(String guestToken, Long userId);
 
+    @Transactional
     @Modifying
     @Query("update ShortUrl s " +
             "set s.clickCount = s.clickCount + 1, " +
