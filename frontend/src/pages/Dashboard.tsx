@@ -27,6 +27,7 @@ type UrlEntry = {
   shortBaseUrl?: string | null;
   createdAt: string;
   lastAccessedAt: string | null;
+  masked?: boolean;
 };
 
 type BillingStatus = {
@@ -108,6 +109,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [longUrl, setLongUrl] = useState("");
   const [customAlias, setCustomAlias] = useState("");
+  const [maskUrl, setMaskUrl] = useState(false);
+  const [maskedLinksRemaining, setMaskedLinksRemaining] = useState<number | null>(null);
   const [urls, setUrls] = useState<UrlEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -238,8 +241,13 @@ export default function Dashboard() {
         shortBaseUrl: item.shortBaseUrl || null,
         createdAt: item.createdAt || "",
         lastAccessedAt: item.lastAccessedAt || null,
+        masked: item.masked || false,
       }));
       setUrls(mappedUrls);
+      // Update masked links remaining from the first item (they all share the same value)
+      if (data.length > 0 && data[0].maskedLinksRemaining != null) {
+        setMaskedLinksRemaining(data[0].maskedLinksRemaining);
+      }
     } catch (fetchError) {
       console.error("Error fetching URLs:", fetchError);
       setError(
@@ -395,6 +403,7 @@ export default function Dashboard() {
           longUrl,
           customAlias: customAlias || null,
           shortDomainMode: shortLinkDomainMode,
+          masked: maskUrl || null,
         }),
       });
 
@@ -404,10 +413,14 @@ export default function Dashboard() {
         throw new Error(apiError);
       }
 
-      await response.json();
+      const createdData = await response.json();
+      if (createdData.maskedLinksRemaining != null) {
+        setMaskedLinksRemaining(createdData.maskedLinksRemaining);
+      }
       await refreshDashboard();
       setLongUrl("");
       setCustomAlias("");
+      setMaskUrl(false);
     } catch (createError: any) {
       console.error("Error creating URL:", createError);
       setError(createError?.message || "Failed to create URL");
@@ -1187,6 +1200,46 @@ export default function Dashboard() {
                   >{verifiedDomain ? (verifiedDomain.length > 18 ? verifiedDomain.slice(0, 16) + "…" : verifiedDomain) : "Custom"}</button>
                 </div>
               </div>
+
+              {/* Mask URL toggle */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: maskUrl ? "rgba(20,184,166,0.04)" : "rgba(15,23,42,0.02)", border: `1px solid ${maskUrl ? "rgba(20,184,166,0.2)" : "rgba(15,23,42,0.06)"}`, marginTop: 8, transition: "all 0.2s" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12, color: maskUrl ? "#0f766e" : "#64748b", fontWeight: 500 }}>Mask URL (Cloak)</span>
+                  {maskedLinksRemaining != null && maskedLinksRemaining < 999999 && (
+                    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: maskedLinksRemaining > 0 ? "rgba(20,184,166,0.1)" : "rgba(239,68,68,0.1)", border: maskedLinksRemaining > 0 ? "1px solid rgba(20,184,166,0.2)" : "1px solid rgba(239,68,68,0.2)", color: maskedLinksRemaining > 0 ? "#0f766e" : "#dc2626", fontWeight: 600 }}>{maskedLinksRemaining} remaining</span>
+                  )}
+                </div>
+                <label style={{ position: "relative", display: "inline-flex", alignItems: "center", cursor: maskedLinksRemaining === 0 ? "not-allowed" : "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={maskUrl}
+                    onChange={e => setMaskUrl(e.target.checked)}
+                    disabled={maskedLinksRemaining === 0}
+                    style={{ position: "absolute", opacity: 0, width: 0, height: 0 }}
+                  />
+                  <div style={{
+                    width: 36, height: 20, borderRadius: 10,
+                    background: maskUrl ? "#0f766e" : "rgba(15,23,42,0.15)",
+                    transition: "background 0.2s",
+                    position: "relative",
+                    opacity: maskedLinksRemaining === 0 ? 0.4 : 1,
+                  }}>
+                    <div style={{
+                      width: 16, height: 16, borderRadius: "50%",
+                      background: "#fff",
+                      position: "absolute", top: 2,
+                      left: maskUrl ? 18 : 2,
+                      transition: "left 0.2s",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                    }} />
+                  </div>
+                </label>
+              </div>
+              {maskUrl && (
+                <p style={{ fontSize: 10, color: "#64748b", margin: "6px 0 0", padding: "0 4px" }}>
+                  Target URL loads inside a full-screen iframe — <span style={{ fontFamily: "ui-monospace, monospace", color: "#0f766e" }}>shur.click</span> stays in the address bar. Some sites block iframes.
+                </p>
+              )}
             </form>
           </div>
 
@@ -1354,6 +1407,10 @@ export default function Dashboard() {
                           {/* Domain badge */}
                           {!isShurLink && (
                             <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.2)", color: "#0f766e", fontFamily: "ui-monospace, monospace", flexShrink: 0 }}>custom</span>
+                          )}
+                          {/* Masked badge */}
+                          {url.masked && (
+                            <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", color: "#7c3aed", fontWeight: 600, flexShrink: 0 }}>masked</span>
                           )}
                         </div>
 

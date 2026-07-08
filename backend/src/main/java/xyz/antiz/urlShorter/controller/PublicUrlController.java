@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -45,9 +46,7 @@ public class PublicUrlController {
         // Default domain: global lookup
         if (isDefaultHost(host)) {
             return shortUrlService.resolveAndTrack(code, countryCode)
-                    .map(longUrl -> ResponseEntity.status(HttpStatus.FOUND)
-                            .location(URI.create(longUrl))
-                            .build())
+                    .map(resolved -> toRedirectOrIframe(resolved.longUrl(), resolved.masked()))
                     .orElseGet(() -> ResponseEntity.notFound().build());
         }
 
@@ -59,10 +58,59 @@ public class PublicUrlController {
 
         Long ownerId = ownerIdOpt.get();
         return shortUrlService.resolveAndTrackForOwner(code, ownerId, countryCode)
-                .map(longUrl -> ResponseEntity.status(HttpStatus.FOUND)
-                        .location(URI.create(longUrl))
-                        .build())
+                .map(resolved -> toRedirectOrIframe(resolved.longUrl(), resolved.masked()))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private ResponseEntity<Object> toRedirectOrIframe(String targetUrl, boolean masked) {
+        if (!masked) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(URI.create(targetUrl))
+                    .build();
+        }
+
+        String html = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>shur.click</title>
+                <style>
+                    body, html { margin: 0; padding: 0; height: 100%%; overflow: hidden; }
+                    iframe { width: 100%%; height: 100%%; border: none; }
+                </style>
+                <script>
+                    window.onload = function() {
+                        var iframe = document.getElementById('masked-frame');
+                        var fallbackTimeout = setTimeout(function() {
+                            // If we can't be sure it loaded, wait a bit and if it fails (e.g. X-Frame-Options),
+                            // we fallback. But since we can't reliably detect cross-origin load failures cleanly
+                            // in all browsers, this is a basic best-effort attempt.
+                        }, 2000);
+                        
+                        iframe.onload = function() {
+                            clearTimeout(fallbackTimeout);
+                        };
+                        
+                        // Very simple fallback for sites known to block iframes or if user clicks a fallback link
+                    };
+                </script>
+            </head>
+            <body>
+                <iframe id="masked-frame" src="%s" allowfullscreen>
+                    <p>Your browser does not support iframes. <a href="%s">Click here to continue</a>.</p>
+                </iframe>
+                <noscript>
+                    <meta http-equiv="refresh" content="0; url=%s">
+                </noscript>
+            </body>
+            </html>
+            """.formatted(targetUrl, targetUrl, targetUrl);
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .contentType(MediaType.TEXT_HTML)
+                .body(html);
     }
 
     private boolean isDefaultHost(String host) {
@@ -161,10 +209,12 @@ class AuthShortUrlController {
                 request.getCustomAlias(),
                 userId,
                 guestToken,
-                request.getShortDomainMode()
+                request.getShortDomainMode(),
+                request.getMasked()
         );
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
+        Integer remaining = userId != null ? service.getMaskedLinksRemaining(userId) : 0;
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved, remaining));
     }
 
     @PostMapping("/claim-guest")
@@ -178,9 +228,10 @@ class AuthShortUrlController {
 
     @GetMapping
     public ResponseEntity<List<CreateShortUrlResponse>> getUserUrls(@RequestAttribute("userId") Long userId) {
+        Integer remaining = service.getMaskedLinksRemaining(userId);
         List<CreateShortUrlResponse> response = service.getUserUrls(userId)
                 .stream()
-                .map(this::toResponse)
+                .map(url -> toResponse(url, remaining))
                 .toList();
 
         return ResponseEntity.ok(response);
@@ -216,7 +267,8 @@ class AuthShortUrlController {
             @RequestAttribute("userId") Long userId
     ) {
         ShortUrl updated = service.switchToShurDomain(id, userId);
-        return ResponseEntity.ok(toResponse(updated));
+        Integer remaining = service.getMaskedLinksRemaining(userId);
+        return ResponseEntity.ok(toResponse(updated, remaining));
     }
 
     @PatchMapping("/{id}/switch-to-custom")
@@ -225,7 +277,8 @@ class AuthShortUrlController {
             @RequestAttribute("userId") Long userId
     ) {
         ShortUrl updated = service.switchToCustomDomain(id, userId);
-        return ResponseEntity.ok(toResponse(updated));
+        Integer remaining = service.getMaskedLinksRemaining(userId);
+        return ResponseEntity.ok(toResponse(updated, remaining));
     }
 
     @DeleteMapping("/{id}")
@@ -234,7 +287,7 @@ class AuthShortUrlController {
         return ResponseEntity.noContent().build();
     }
 
-    private CreateShortUrlResponse toResponse(ShortUrl url) {
+    private CreateShortUrlResponse toResponse(ShortUrl url, Integer maskedLinksRemaining) {
         return new CreateShortUrlResponse(
                 url.getId(),
                 url.getShortCode(),
@@ -243,7 +296,9 @@ class AuthShortUrlController {
                 url.getLongUrl(),
                 url.getClickCount(),
                 IstDateTime.format(url.getCreatedAt()),
-                IstDateTime.format(url.getLastAccessedAt()));
+                IstDateTime.format(url.getLastAccessedAt()),
+                url.getMasked(),
+                maskedLinksRemaining);
     }
 
     private String buildShortUrl(ShortUrl url) {
