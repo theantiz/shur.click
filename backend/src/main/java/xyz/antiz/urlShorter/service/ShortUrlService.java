@@ -14,6 +14,11 @@ import xyz.antiz.urlShorter.repo.CustomDomainRepository;
 import xyz.antiz.urlShorter.repo.ShortUrlRepository;
 import xyz.antiz.urlShorter.repo.UrlClickEventRepository;
 import xyz.antiz.urlShorter.repo.UserRepository;
+import xyz.antiz.urlShorter.repo.MaskedUrlAuditRepository;
+import xyz.antiz.urlShorter.entity.MaskedUrlAudit;
+import xyz.antiz.urlShorter.exception.MaskingQuotaExceededException;
+import xyz.antiz.urlShorter.exception.MaskingRequiresAuthException;
+import xyz.antiz.urlShorter.exception.MaskingTargetFlaggedException;
 import xyz.antiz.urlShorter.util.IstDateTime;
 
 import java.security.SecureRandom;
@@ -23,12 +28,18 @@ import java.util.Optional;
 @Service
 public class ShortUrlService {
 
+    public record ResolvedUrl(String longUrl, boolean masked) {}
+
     private final ShortUrlRepository repo;
     private final UserRepository users;
     private final UrlClickEventRepository clickEvents;
     private final UrlLookupCacheService urlLookupCache;
     private final CustomDomainRepository customDomains;
+    private final MaskedUrlAuditRepository maskedAudits;
+    private final SafeBrowsingCheckService safeBrowsing;
     private final String publicBaseUrl;
+    private final int maskingFreeLimit;
+    private final int maskingProLimit;
     private final SecureRandom random = new SecureRandom();
     private static final String CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final int FREE_TIER_LINK_LIMIT = 5;
@@ -44,14 +55,22 @@ public class ShortUrlService {
             UrlClickEventRepository clickEvents,
             UrlLookupCacheService urlLookupCache,
             CustomDomainRepository customDomains,
-            @Value("${app.public.base-url:https://shur.click}") String publicBaseUrl
+            MaskedUrlAuditRepository maskedAudits,
+            SafeBrowsingCheckService safeBrowsing,
+            @Value("${app.public.base-url:https://shur.click}") String publicBaseUrl,
+            @Value("${masking.free.lifetime.limit:2}") int maskingFreeLimit,
+            @Value("${masking.pro.limit:-1}") int maskingProLimit
     ) {
         this.repo = repo;
         this.users = users;
         this.clickEvents = clickEvents;
         this.urlLookupCache = urlLookupCache;
         this.customDomains = customDomains;
+        this.maskedAudits = maskedAudits;
+        this.safeBrowsing = safeBrowsing;
         this.publicBaseUrl = publicBaseUrl;
+        this.maskingFreeLimit = maskingFreeLimit;
+        this.maskingProLimit = maskingProLimit;
     }
 
     @Transactional
@@ -60,14 +79,21 @@ public class ShortUrlService {
             String customAlias,
             Long userId,
             String guestToken,
-            String shortDomainMode
+            String shortDomainMode,
+            Boolean maskedRequest
     ) {
 
+        boolean isMasked = maskedRequest != null && maskedRequest;
         String normalized = normalize(longUrl);
         Long ownerId = resolveOwnerId(userId);
         String normalizedGuestToken = userId == null ? normalizeGuestToken(guestToken) : null;
         String shortBaseUrl = resolveShortBaseUrl(userId, ownerId, shortDomainMode);
         enforcePlanLimitIfNeeded(userId, ownerId, normalizedGuestToken);
+
+        MaskedUrlAudit audit = null;
+        if (isMasked) {
+            audit = enforceMaskingRulesAndAudit(userId, ownerId, normalized);
+        }
 
         // if alias is provided, use it
         if (customAlias != null && !customAlias.trim().isEmpty()) {
@@ -91,9 +117,15 @@ public class ShortUrlService {
             row.setGuestToken(normalizedGuestToken);
             row.setClickCount(0L);
             row.setCreatedAt(IstDateTime.now());
+            row.setMasked(isMasked);
+            if (isMasked) row.setMaskedAt(java.time.Instant.now());
 
             ShortUrl saved = repo.save(row);
-            urlLookupCache.put(saved.getId(), saved.getShortCode(), saved.getLongUrl());
+            urlLookupCache.put(saved.getId(), saved.getShortCode(), saved.getLongUrl(), saved.getMasked());
+            if (isMasked && audit != null) {
+                audit.setShortUrlId(saved.getId());
+                maskedAudits.save(audit);
+            }
             return saved;
         }
 
@@ -108,38 +140,43 @@ public class ShortUrlService {
         row.setGuestToken(normalizedGuestToken);
         row.setClickCount(0L);
         row.setCreatedAt(IstDateTime.now());
+        row.setMasked(isMasked);
+        if (isMasked) row.setMaskedAt(java.time.Instant.now());
 
         ShortUrl saved = repo.save(row);
-        urlLookupCache.put(saved.getId(), saved.getShortCode(), saved.getLongUrl());
+        urlLookupCache.put(saved.getId(), saved.getShortCode(), saved.getLongUrl(), saved.getMasked());
+        if (isMasked && audit != null) {
+            audit.setShortUrlId(saved.getId());
+            maskedAudits.save(audit);
+        }
         return saved;
     }
 
     @Transactional
-    public Optional<String> resolveAndTrack(String code, String countryCode) {
+    public Optional<ResolvedUrl> resolveAndTrack(String code, String countryCode) {
         Optional<UrlLookupCacheService.LookupValue> cached = urlLookupCache.get(code);
         if (cached.isPresent()) {
             trackClick(cached.get().shortUrlId(), countryCode);
-            return Optional.of(cached.get().longUrl());
+            return Optional.of(new ResolvedUrl(cached.get().longUrl(), cached.get().masked()));
         }
 
         Optional<ShortUrl> fromDb = repo.findByShortCode(code);
         fromDb.ifPresent(url -> {
-            urlLookupCache.put(url.getId(), url.getShortCode(), url.getLongUrl());
+            urlLookupCache.put(url.getId(), url.getShortCode(), url.getLongUrl(), url.getMasked());
             trackClick(url.getId(), countryCode);
         });
-        return fromDb.map(ShortUrl::getLongUrl);
+        return fromDb.map(url -> new ResolvedUrl(url.getLongUrl(), url.getMasked()));
     }
 
     // owner-aware resolution for custom domains
     @Transactional
-    public Optional<String> resolveAndTrackForOwner(String code, Long ownerId, String countryCode) {
+    public Optional<ResolvedUrl> resolveAndTrackForOwner(String code, Long ownerId, String countryCode) {
         Optional<ShortUrl> fromDb = repo.findByShortCodeAndUserId(code, ownerId);
         fromDb.ifPresent(url -> {
-            // safe with globally-unique codes; if that ever changes, remove this cache write
-            urlLookupCache.put(url.getId(), url.getShortCode(), url.getLongUrl());
+            urlLookupCache.put(url.getId(), url.getShortCode(), url.getLongUrl(), url.getMasked());
             trackClick(url.getId(), countryCode);
         });
-        return fromDb.map(ShortUrl::getLongUrl);
+        return fromDb.map(url -> new ResolvedUrl(url.getLongUrl(), url.getMasked()));
     }
 
     public Optional<ShortUrl> getByCode(String code) {
@@ -366,6 +403,53 @@ public class ShortUrlService {
             throw new IllegalStateException(
                     "Free plan limit reached (5 links). Upgrade to Pro for $2/month to unlock unlimited link generation."
             );
+        }
+    }
+
+    private MaskedUrlAudit enforceMaskingRulesAndAudit(Long requestedUserId, Long ownerId, String targetUrl) {
+        if (requestedUserId == null) {
+            throw new MaskingRequiresAuthException("URL masking requires a free verified account. Please sign up or log in.");
+        }
+
+        User owner = users.findById(ownerId)
+                .orElseThrow(() -> new MaskingRequiresAuthException("User account not found."));
+
+        if (!owner.isVerified()) {
+            throw new MaskingRequiresAuthException("URL masking requires email verification. Please verify your email.");
+        }
+
+        if (!owner.isProActive() && maskingFreeLimit >= 0) {
+            long maskedCount = maskedAudits.countByUserId(ownerId);
+            if (maskedCount >= maskingFreeLimit) {
+                throw new MaskingQuotaExceededException("Free tier limit for masked links (" + maskingFreeLimit + ") reached.");
+            }
+        } else if (owner.isProActive() && maskingProLimit >= 0) {
+            long maskedCount = maskedAudits.countByUserId(ownerId);
+            if (maskedCount >= maskingProLimit) {
+                throw new MaskingQuotaExceededException("Pro tier limit for masked links (" + maskingProLimit + ") reached.");
+            }
+        }
+
+        SafeBrowsingResult sbResult = safeBrowsing.check(targetUrl);
+        MaskedUrlAudit audit = new MaskedUrlAudit(0L, ownerId, targetUrl, sbResult.name());
+        MaskedUrlAudit savedAudit = maskedAudits.save(audit); // Temporary ID 0L, will be updated later
+
+        if (sbResult == SafeBrowsingResult.FLAGGED) {
+            throw new MaskingTargetFlaggedException("Target URL flagged by Safe Browsing as unsafe. Cannot be masked.");
+        }
+        
+        return savedAudit;
+    }
+
+    public int getMaskedLinksRemaining(Long userId) {
+        if (userId == null) return 0;
+        User owner = users.findById(userId).orElse(null);
+        if (owner == null) return 0;
+        
+        if (owner.isProActive()) {
+            return maskingProLimit < 0 ? 999999 : (int) Math.max(0, maskingProLimit - maskedAudits.countByUserId(userId));
+        } else {
+            return maskingFreeLimit < 0 ? 999999 : (int) Math.max(0, maskingFreeLimit - maskedAudits.countByUserId(userId));
         }
     }
 

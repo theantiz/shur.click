@@ -37,6 +37,9 @@ public class User {
     @Column(name = "pro_expires_at")
     private LocalDateTime proExpiresAt;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean verified = false;
+
     public User() {
     }
 
@@ -49,6 +52,7 @@ public class User {
         this.fullName = fullName;
         this.createdAt = createdAt;
         this.planTier = PlanTier.FREE;
+        this.verified = true; // explicitly verified when creating via this constructor (often social login)
     }
 
     public User(String fullName, String email, String passwordHash) {
@@ -59,6 +63,7 @@ public class User {
         this.password = passwordHash;
         this.createdAt = LocalDateTime.now();
         this.planTier = PlanTier.FREE;
+        this.verified = false; // assume false initially for raw register, wait for OTP
     }
 
     public Long getId() {
@@ -143,6 +148,14 @@ public class User {
 
     public boolean isProActive() {
         return getPlanTier() == PlanTier.PRO && proExpiresAt != null && proExpiresAt.isAfter(LocalDateTime.now());
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.verified = verified;
     }
 
 }

@@ -16,6 +16,7 @@ public class UrlLookupCacheService {
     private static final String LOOKUP_KEY_PREFIX = "shorturl:lookup:";
     private static final String LONG_URL_SUFFIX = ":long";
     private static final String ID_SUFFIX = ":id";
+    private static final String MASKED_SUFFIX = ":masked";
 
     private final ObjectProvider<StringRedisTemplate> redisTemplateProvider;
     private final boolean redisEnabled;
@@ -38,23 +39,26 @@ public class UrlLookupCacheService {
         try {
             String idRaw = redis.opsForValue().get(idKey(code));
             String longUrl = redis.opsForValue().get(longUrlKey(code));
+            String maskedRaw = redis.opsForValue().get(maskedKey(code));
             if (idRaw == null || longUrl == null || longUrl.isBlank()) {
                 return Optional.empty();
             }
-            return Optional.of(new LookupValue(Long.parseLong(idRaw), longUrl));
+            boolean masked = "true".equalsIgnoreCase(maskedRaw);
+            return Optional.of(new LookupValue(Long.parseLong(idRaw), longUrl, masked));
         } catch (Exception ex) {
             log.debug("Redis URL lookup read failed code={} reason={}", code, ex.getClass().getSimpleName());
             return Optional.empty();
         }
     }
 
-    public void put(Long shortUrlId, String code, String longUrl) {
+    public void put(Long shortUrlId, String code, String longUrl, boolean masked) {
         if (!redisEnabled || shortUrlId == null || code == null || longUrl == null) return;
         StringRedisTemplate redis = redisTemplateProvider.getIfAvailable();
         if (redis == null) return;
         try {
             redis.opsForValue().set(idKey(code), shortUrlId.toString(), cacheTtl);
             redis.opsForValue().set(longUrlKey(code), longUrl, cacheTtl);
+            redis.opsForValue().set(maskedKey(code), String.valueOf(masked), cacheTtl);
         } catch (Exception ex) {
             log.debug("Redis URL lookup write failed code={} reason={}", code, ex.getClass().getSimpleName());
         }
@@ -67,6 +71,7 @@ public class UrlLookupCacheService {
         try {
             redis.delete(idKey(code));
             redis.delete(longUrlKey(code));
+            redis.delete(maskedKey(code));
         } catch (Exception ex) {
             log.debug("Redis URL lookup evict failed code={} reason={}", code, ex.getClass().getSimpleName());
         }
@@ -80,5 +85,9 @@ public class UrlLookupCacheService {
         return LOOKUP_KEY_PREFIX + code + ID_SUFFIX;
     }
 
-    public record LookupValue(Long shortUrlId, String longUrl) {}
+    private String maskedKey(String code) {
+        return LOOKUP_KEY_PREFIX + code + MASKED_SUFFIX;
+    }
+
+    public record LookupValue(Long shortUrlId, String longUrl, boolean masked) {}
 }

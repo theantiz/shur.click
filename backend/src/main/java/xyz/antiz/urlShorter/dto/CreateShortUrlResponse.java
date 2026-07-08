@@ -10,6 +10,8 @@ public class CreateShortUrlResponse {
     private Long clickCount;
     private String createdAt;
     private String lastAccessedAt;
+    private Boolean masked;
+    private Integer maskedLinksRemaining;
 
     public CreateShortUrlResponse() {
     }
@@ -22,7 +24,9 @@ public class CreateShortUrlResponse {
             String longUrl,
             Long clickCount,
             String createdAt,
-            String lastAccessedAt
+            String lastAccessedAt,
+            Boolean masked,
+            Integer maskedLinksRemaining
     ) {
         this.id = id;
         this.shortCode = shortCode;
@@ -32,6 +36,8 @@ public class CreateShortUrlResponse {
         this.clickCount = clickCount;
         this.createdAt = createdAt;
         this.lastAccessedAt = lastAccessedAt;
+        this.masked = masked;
+        this.maskedLinksRemaining = maskedLinksRemaining;
     }
 
     public Long getId() {
@@ -96,5 +102,21 @@ public class CreateShortUrlResponse {
 
     public void setLastAccessedAt(String lastAccessedAt) {
         this.lastAccessedAt = lastAccessedAt;
+    }
+
+    public Boolean getMasked() {
+        return masked;
+    }
+
+    public void setMasked(Boolean masked) {
+        this.masked = masked;
+    }
+
+    public Integer getMaskedLinksRemaining() {
+        return maskedLinksRemaining;
+    }
+
+    public void setMaskedLinksRemaining(Integer maskedLinksRemaining) {
+        this.maskedLinksRemaining = maskedLinksRemaining;
     }
 }
