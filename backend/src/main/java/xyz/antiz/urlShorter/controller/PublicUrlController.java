@@ -119,6 +119,7 @@ public class PublicUrlController {
         }
         return DEFAULT_DOMAIN.equalsIgnoreCase(host)
                 || ("www." + DEFAULT_DOMAIN).equalsIgnoreCase(host)
+                || ("api." + DEFAULT_DOMAIN).equalsIgnoreCase(host)
                 || "localhost".equalsIgnoreCase(host)
                 || "127.0.0.1".equals(host);
     }
