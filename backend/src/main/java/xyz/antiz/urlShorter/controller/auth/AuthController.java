@@ -59,19 +59,19 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
         AuthResponse resp = auth.register(req);
-        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token)).body(resp);
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
         AuthResponse resp = auth.login(req);
-        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token)).body(resp);
     }
 
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest req) {
         AuthResponse resp = auth.googleLogin(req);
-        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token)).body(resp);
     }
 
     // OTP-based auth endpoints
@@ -83,7 +83,7 @@ public class AuthController {
     @PostMapping("/register-verify")
     public ResponseEntity<AuthResponse> registerVerify(@Valid @RequestBody VerifyOtpRequest req) {
         AuthResponse resp = auth.registerVerify(req);
-        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token)).body(resp);
     }
 
     @PostMapping("/forgot-password")

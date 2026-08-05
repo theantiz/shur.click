@@ -337,6 +337,8 @@ class UrlShorterApplicationTests {
 		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/isttest"))
 				.andExpect(status().isFound());
 
+		Thread.sleep(500); // Wait for async click tracking to complete
+
 		String statsResponse = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/urls/isttest/stats")
 						.header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk())
@@ -406,21 +408,21 @@ class UrlShorterApplicationTests {
 
 	@Test
 	void maskedUrlsAreHtmlEscapedToPreventXSS() throws Exception {
-		User user = users.save(new User(
+		User xssUser = new User(
 				"XSS User",
 				"xss@test.com",
 				passwordEncoder.encode("Password123")
-		));
+		);
+		xssUser.setVerified(true);
+		User user = users.save(xssUser);
 		String token = jwtService.createToken(user.getId(), user.getEmail());
 
-		String maliciousUrl = "\"><script>alert('xss')</script>";
-		String requestBody = """
-				{
-				  "longUrl": "%s",
-				  "customAlias": "xss-test-alias",
-				  "masked": true
-				}
-				""".formatted(maliciousUrl);
+		String maliciousUrl = "http://example.com/?q=\"><script>alert('xss')</script>";
+		java.util.Map<String, Object> req = new java.util.HashMap<>();
+		req.put("longUrl", maliciousUrl);
+		req.put("customAlias", "xss-test-alias");
+		req.put("masked", true);
+		String requestBody = objectMapper.writeValueAsString(req);
 
 		mockMvc.perform(post("/api/urls")
 						.header("Authorization", "Bearer " + token)
@@ -433,7 +435,7 @@ class UrlShorterApplicationTests {
 				.andReturn().getResponse().getContentAsString();
 
 		assertFalse(htmlResponse.contains("<script>alert('xss')</script>"), "HTML response should not contain raw script tags");
-		assertTrue(htmlResponse.contains("&gt;&lt;script&gt;alert('xss')&lt;/script&gt;"), "Malicious payload should be HTML escaped");
+		assertTrue(htmlResponse.contains("&gt;&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;"), "Malicious payload should be HTML escaped");
 	}
 
 	@Test
