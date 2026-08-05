@@ -1,6 +1,9 @@
 package xyz.antiz.urlShorter.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +35,10 @@ public class ShortUrlService {
 
     public record ResolvedUrl(String longUrl, boolean masked) {}
 
+    private static final Logger log = LoggerFactory.getLogger(ShortUrlService.class);
+
     private final ShortUrlRepository repo;
+    private final ShortUrlSaver saver;
     private final UserRepository users;
     private final UrlClickEventRepository clickEvents;
     private final UrlLookupCacheService urlLookupCache;
@@ -54,6 +60,7 @@ public class ShortUrlService {
 
     public ShortUrlService(
             ShortUrlRepository repo,
+            ShortUrlSaver saver,
             UserRepository users,
             UrlClickEventRepository clickEvents,
             UrlLookupCacheService urlLookupCache,
@@ -65,6 +72,7 @@ public class ShortUrlService {
             @Value("${masking.pro.limit:-1}") int maskingProLimit
     ) {
         this.repo = repo;
+        this.saver = saver;
         this.users = users;
         this.clickEvents = clickEvents;
         this.urlLookupCache = urlLookupCache;
@@ -108,10 +116,6 @@ public class ShortUrlService {
                 throw new IllegalArgumentException("Alias must be 3-20 chars (a-z, A-Z, 0-9, _ or -)");
             }
 
-            if (repo.existsByShortCode(alias)) {
-                throw new IllegalArgumentException("Alias already taken");
-            }
-
             ShortUrl row = new ShortUrl();
             row.setUserId(ownerId);
             row.setLongUrl(normalized);
@@ -123,7 +127,13 @@ public class ShortUrlService {
             row.setMasked(isMasked);
             if (isMasked) row.setMaskedAt(java.time.Instant.now());
 
-            ShortUrl saved = repo.save(row);
+            ShortUrl saved;
+            try {
+                saved = saver.saveAndFlush(row);
+            } catch (DataIntegrityViolationException e) {
+                throw new IllegalArgumentException("Alias already taken");
+            }
+            
             urlLookupCache.put(saved.getId(), saved.getShortCode(), saved.getLongUrl(), saved.getMasked());
             if (isMasked && audit != null) {
                 audit.setShortUrlId(saved.getId());
@@ -133,12 +143,9 @@ public class ShortUrlService {
         }
 
         // else generate random short code and ensure unique
-        String code = generateUniqueCode();
-
         ShortUrl row = new ShortUrl();
         row.setUserId(ownerId);
         row.setLongUrl(normalized);
-        row.setShortCode(code);
         row.setShortBaseUrl(shortBaseUrl);
         row.setGuestToken(normalizedGuestToken);
         row.setClickCount(0L);
@@ -146,7 +153,21 @@ public class ShortUrlService {
         row.setMasked(isMasked);
         if (isMasked) row.setMaskedAt(java.time.Instant.now());
 
-        ShortUrl saved = repo.save(row);
+        ShortUrl saved = null;
+        for (int i = 0; i < 20; i++) {
+            row.setShortCode(randomCode(6));
+            try {
+                saved = saver.saveAndFlush(row);
+                break;
+            } catch (DataIntegrityViolationException e) {
+                // ignore and retry
+            }
+        }
+        
+        if (saved == null) {
+            throw new IllegalStateException("Could not generate unique short code");
+        }
+
         urlLookupCache.put(saved.getId(), saved.getShortCode(), saved.getLongUrl(), saved.getMasked());
         if (isMasked && audit != null) {
             audit.setShortUrlId(saved.getId());
@@ -290,24 +311,28 @@ public class ShortUrlService {
 
     private void trackClick(Long shortUrlId, String countryCode) {
         trackingExecutor.submit(() -> {
-            try {
-                repo.incrementClickAndSetLastAccessedAt(shortUrlId, IstDateTime.now());
-                clickEvents.save(new UrlClickEvent(shortUrlId, normalizeCountryCode(countryCode)));
-            } catch (Exception e) {
-                // Log and ignore to prevent blocking
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    repo.incrementClickAndSetLastAccessedAt(shortUrlId, IstDateTime.now());
+                    clickEvents.save(new UrlClickEvent(shortUrlId, normalizeCountryCode(countryCode)));
+                    break;
+                } catch (Exception e) {
+                    log.warn("Failed to track click for url {} (attempt {}): {}", shortUrlId, attempt, e.getMessage());
+                    if (attempt == 3) {
+                        log.error("Gave up tracking click for url {}", shortUrlId, e);
+                    } else {
+                        try {
+                            Thread.sleep(500);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                }
             }
         });
     }
 
-    private String generateUniqueCode() {
-        for (int i = 0; i < 20; i++) {
-            String code = randomCode(6);
-            if (!repo.existsByShortCode(code)) {
-                return code;
-            }
-        }
-        throw new IllegalStateException("Could not generate unique short code");
-    }
+
 
     private String randomCode(int len) {
         StringBuilder sb = new StringBuilder(len);

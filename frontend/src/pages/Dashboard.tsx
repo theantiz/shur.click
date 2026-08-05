@@ -220,7 +220,7 @@ export default function Dashboard() {
 
   const fetchUrls = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/urls"), {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -260,7 +260,7 @@ export default function Dashboard() {
 
   const fetchBilling = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/billing/status"), {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -287,7 +287,7 @@ export default function Dashboard() {
         setIsDomainsLoading(true);
       }
       setDomainError(null);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/domains"), {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -323,7 +323,7 @@ export default function Dashboard() {
           delete next[shortCode];
           return next;
         });
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("userEmail");
         const response = await fetch(
           apiUrl(`/api/urls/${encodeURIComponent(shortCode)}/geo-analytics`),
           {
@@ -356,7 +356,7 @@ export default function Dashboard() {
   );
 
   const refreshDashboard = useCallback(async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("userEmail");
     if (!token) {
       navigate("/auth/login");
       return;
@@ -392,7 +392,7 @@ export default function Dashboard() {
 
     try {
       setError(null);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/urls"), {
         method: "POST",
         headers: {
@@ -433,7 +433,7 @@ export default function Dashboard() {
     try {
       setIsDeletingLink(true);
       setError(null);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl(`/api/urls/${id}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -458,7 +458,7 @@ export default function Dashboard() {
     try {
       setSwitchingToShurId(url.id);
       setError(null);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl(`/api/urls/${url.id}/switch-to-shur`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
@@ -490,7 +490,7 @@ export default function Dashboard() {
     try {
       setSwitchingToCustomId(url.id);
       setError(null);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(
         apiUrl(`/api/urls/${url.id}/switch-to-custom`),
         {
@@ -538,7 +538,7 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const orderRes = await fetch(apiUrl("/api/billing/razorpay-order"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -628,7 +628,7 @@ export default function Dashboard() {
     setPromoSuccess(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const res = await fetch(apiUrl("/api/billing/redeem-promo"), {
         method: "POST",
         headers: {
@@ -669,7 +669,7 @@ export default function Dashboard() {
     setDomainError(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const raw = newDomain.trim().replace(/^https?:\/\//i, "");
       const response = await fetch(apiUrl("/api/domains"), {
         method: "POST",
@@ -701,7 +701,7 @@ export default function Dashboard() {
   const handleVerifyDomain = async (id: number) => {
     setDomainError(null);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl(`/api/domains/${id}/verify`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -727,7 +727,7 @@ export default function Dashboard() {
   const handleDeleteDomain = async (id: number) => {
     setDomainError(null);
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl(`/api/domains/${id}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -767,7 +767,7 @@ export default function Dashboard() {
     setProfileError(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/me"), {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -806,7 +806,7 @@ export default function Dashboard() {
     setProfileMessage(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/me"), {
         method: "PATCH",
         headers: {
@@ -865,7 +865,7 @@ export default function Dashboard() {
     setProfileMessage(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/me/email/verify"), {
         method: "POST",
         headers: {
@@ -910,7 +910,7 @@ export default function Dashboard() {
     setPasswordMessage(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       const response = await fetch(apiUrl("/api/me/password"), {
         method: "PATCH",
         headers: {
@@ -970,7 +970,7 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("userEmail");
       if (!token) {
         navigate("/auth/login");
         return;

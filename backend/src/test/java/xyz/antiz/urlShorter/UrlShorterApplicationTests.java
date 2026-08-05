@@ -21,7 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import jakarta.servlet.http.Cookie;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -32,6 +38,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -340,6 +348,131 @@ class UrlShorterApplicationTests {
 		JsonNode statsJson = objectMapper.readTree(statsResponse);
 		assertTrue(statsJson.get("createdAt").asText().endsWith("+05:30"));
 		assertTrue(statsJson.get("lastAccessedAt").asText().endsWith("+05:30"));
+	}
+
+	@Test
+	void concurrentAliasCreationPreventsDuplicates() throws Exception {
+		User user = users.save(new User(
+				"Concurrent User",
+				"concurrent@test.com",
+				passwordEncoder.encode("Password123")
+		));
+		String token = jwtService.createToken(user.getId(), user.getEmail());
+
+		int threadCount = 5;
+		ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+		CountDownLatch latch = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(threadCount);
+		AtomicInteger successCount = new AtomicInteger(0);
+		AtomicInteger conflictCount = new AtomicInteger(0);
+
+		String requestBody = """
+				{
+				  "longUrl": "https://example.com/concurrent",
+				  "customAlias": "race-condition-alias"
+				}
+				""";
+
+		for (int i = 0; i < threadCount; i++) {
+			executor.submit(() -> {
+				try {
+					latch.await();
+					int status = mockMvc.perform(post("/api/urls")
+									.header("Authorization", "Bearer " + token)
+									.contentType(APPLICATION_JSON)
+									.content(requestBody))
+							.andReturn().getResponse().getStatus();
+
+					if (status == 201) {
+						successCount.incrementAndGet();
+					} else if (status == 400 || status == 409 || status == 500) {
+						// Depending on how DataIntegrityViolationException is translated (usually 400 or 500)
+						conflictCount.incrementAndGet();
+					}
+				} catch (Exception e) {
+					conflictCount.incrementAndGet();
+				} finally {
+					done.countDown();
+				}
+			});
+		}
+
+		latch.countDown(); // start all threads
+		done.await(); // wait for all to finish
+
+		assertEquals(1, successCount.get(), "Exactly one request should succeed");
+		assertEquals(threadCount - 1, conflictCount.get(), "Other requests should fail due to uniqueness constraint");
+	}
+
+	@Test
+	void maskedUrlsAreHtmlEscapedToPreventXSS() throws Exception {
+		User user = users.save(new User(
+				"XSS User",
+				"xss@test.com",
+				passwordEncoder.encode("Password123")
+		));
+		String token = jwtService.createToken(user.getId(), user.getEmail());
+
+		String maliciousUrl = "\"><script>alert('xss')</script>";
+		String requestBody = """
+				{
+				  "longUrl": "%s",
+				  "customAlias": "xss-test-alias",
+				  "masked": true
+				}
+				""".formatted(maliciousUrl);
+
+		mockMvc.perform(post("/api/urls")
+						.header("Authorization", "Bearer " + token)
+						.contentType(APPLICATION_JSON)
+						.content(requestBody))
+				.andExpect(status().isCreated());
+
+		String htmlResponse = mockMvc.perform(get("/xss-test-alias"))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+
+		assertFalse(htmlResponse.contains("<script>alert('xss')</script>"), "HTML response should not contain raw script tags");
+		assertTrue(htmlResponse.contains("&gt;&lt;script&gt;alert('xss')&lt;/script&gt;"), "Malicious payload should be HTML escaped");
+	}
+
+	@Test
+	void authSetsHttpOnlyCookieAndAllowsCookieAuthentication() throws Exception {
+		User user = users.save(new User(
+				"Cookie User",
+				"cookie@test.com",
+				passwordEncoder.encode("Password123")
+		));
+
+		String loginBody = """
+				{
+				  "email": "cookie@test.com",
+				  "password": "Password123"
+				}
+				""";
+
+		String loginResponse = mockMvc.perform(post("/api/auth/login")
+						.contentType(APPLICATION_JSON)
+						.content(loginBody))
+				.andExpect(status().isOk())
+				.andExpect(cookie().exists("token"))
+				.andExpect(cookie().httpOnly("token", true))
+				.andExpect(cookie().secure("token", true))
+				.andReturn().getResponse().getContentAsString();
+
+		String token = objectMapper.readTree(loginResponse).get("token").asText();
+
+		// Test accessing a protected endpoint WITH the cookie, WITHOUT the Authorization header
+		mockMvc.perform(get("/api/me")
+						.cookie(new Cookie("token", token)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value("cookie@test.com"));
+				
+		// Test logout clears the cookie
+		mockMvc.perform(post("/api/auth/logout")
+						.cookie(new Cookie("token", token)))
+				.andExpect(status().isOk())
+				.andExpect(cookie().maxAge("token", 0));
 	}
 
 	@TestConfiguration

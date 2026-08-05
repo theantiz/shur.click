@@ -56,14 +56,21 @@ export default function TrackPage() {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const hasSession = localStorage.getItem("userEmail");
       const res = await fetch(
         apiUrl(`/api/urls/${encodeURIComponent(code)}/stats`),
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: hasSession ? { Authorization: `Bearer ${localStorage.getItem("token") || ""}` } : undefined,
+          credentials: "include"
         },
       );
       if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem("userEmail");
+          localStorage.removeItem("userName");
+          navigate("/auth/login");
+          return false;
+        }
         throw new Error(
           await getApiErrorMessage(
             res,
@@ -106,18 +113,31 @@ export default function TrackPage() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
+    const hasSession = localStorage.getItem("userEmail");
+    if (!hasSession) {
       navigate("/auth/login");
     }
   }, [navigate]);
 
   useEffect(() => {
     if (!trackedCode) return;
-    const intervalId = window.setInterval(() => {
-      void fetchStats(trackedCode, false);
-    }, 3000);
-    return () => window.clearInterval(intervalId);
+    let isActive = true;
+    let timeoutId: number;
+    
+    const poll = async () => {
+      if (!isActive) return;
+      const ok = await fetchStats(trackedCode, false);
+      if (ok && isActive) {
+        timeoutId = window.setTimeout(poll, 3000);
+      }
+    };
+    
+    timeoutId = window.setTimeout(poll, 3000);
+    
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
   }, [trackedCode]);
 
   return (

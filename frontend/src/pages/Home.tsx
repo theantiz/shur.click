@@ -7,12 +7,12 @@ import "../styles/animations.css";
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() =>
-    Boolean(localStorage.getItem("token")),
+    Boolean(localStorage.getItem("userEmail")),
   );
 
   useEffect(() => {
     const onStorage = () =>
-      setIsLoggedIn(Boolean(localStorage.getItem("token")));
+      setIsLoggedIn(Boolean(localStorage.getItem("userEmail")));
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);

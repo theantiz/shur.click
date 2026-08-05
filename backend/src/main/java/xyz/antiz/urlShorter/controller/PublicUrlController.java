@@ -69,6 +69,7 @@ public class PublicUrlController {
                     .build();
         }
 
+        String escapedUrl = org.springframework.web.util.HtmlUtils.htmlEscape(targetUrl);
         String html = """
             <!DOCTYPE html>
             <html lang="en">
@@ -106,7 +107,7 @@ public class PublicUrlController {
                 </noscript>
             </body>
             </html>
-            """.formatted(targetUrl, targetUrl, targetUrl);
+            """.formatted(escapedUrl, escapedUrl, escapedUrl);
 
         return ResponseEntity.status(HttpStatus.OK)
                 .contentType(MediaType.TEXT_HTML)

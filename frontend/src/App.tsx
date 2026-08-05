@@ -24,7 +24,7 @@ const Feedback = lazy(() => import("./pages/Feedback.tsx"));
 const RedirectHandler = lazy(() => import("./components/RedirectHandler"));
 
 function isLoggedIn() {
-  return Boolean(localStorage.getItem("token"));
+  return Boolean(localStorage.getItem("userEmail"));
 }
 
 function PublicHome() {

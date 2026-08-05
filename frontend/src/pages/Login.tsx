@@ -55,10 +55,9 @@ export default function Login() {
       }
 
       const data = await response.json();
-      localStorage.setItem("token", data.token);
       localStorage.setItem("userEmail", data.email);
       localStorage.setItem("userName", data.fullName || "");
-      await claimGuestLinks(data.token);
+      await claimGuestLinks(data.token); // Still passing token if needed, or wait, claimGuestLinks needs token?
       navigate("/user/dashboard");
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Login failed"));
@@ -99,7 +98,6 @@ export default function Login() {
         }
 
         const data = await res.json();
-        localStorage.setItem("token", data.token);
         localStorage.setItem("userEmail", data.email);
         localStorage.setItem("userName", data.fullName || "");
         await claimGuestLinks(data.token);

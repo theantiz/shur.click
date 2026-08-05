@@ -1,6 +1,8 @@
 package xyz.antiz.urlShorter.controller.auth;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import xyz.antiz.urlShorter.dto.auth.AuthResponse;
@@ -27,20 +29,49 @@ public class AuthController {
         this.auth = auth;
     }
 
+    private HttpHeaders createCookieHeader(String token) {
+        ResponseCookie cookie = ResponseCookie.from("token", token)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .sameSite("Strict")
+                .maxAge(7 * 24 * 60 * 60)
+                .build();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
+        return headers;
+    }
+
+    private HttpHeaders createClearCookieHeader() {
+        ResponseCookie cookie = ResponseCookie.from("token", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .sameSite("Strict")
+                .maxAge(0)
+                .build();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
+        return headers;
+    }
+
     // Legacy direct auth endpoints (kept for backward compatibility)
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
-        return ResponseEntity.ok(auth.register(req));
+        AuthResponse resp = auth.register(req);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
-        return ResponseEntity.ok(auth.login(req));
+        AuthResponse resp = auth.login(req);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
     }
 
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest req) {
-        return ResponseEntity.ok(auth.googleLogin(req));
+        AuthResponse resp = auth.googleLogin(req);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
     }
 
     // OTP-based auth endpoints
@@ -51,7 +82,8 @@ public class AuthController {
 
     @PostMapping("/register-verify")
     public ResponseEntity<AuthResponse> registerVerify(@Valid @RequestBody VerifyOtpRequest req) {
-        return ResponseEntity.ok(auth.registerVerify(req));
+        AuthResponse resp = auth.registerVerify(req);
+        return ResponseEntity.ok().headers(createCookieHeader(resp.token())).body(resp);
     }
 
     @PostMapping("/forgot-password")
@@ -72,6 +104,11 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", message));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout() {
+        return ResponseEntity.ok().headers(createClearCookieHeader()).body(Map.of("message", "Logged out successfully"));
+    }
+
     @DeleteMapping("/account")
     public ResponseEntity<Map<String, String>> deleteAccount(
             @RequestAttribute(value = "userId", required = false) Long userId
@@ -80,6 +117,6 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
         auth.deleteAccount(userId);
-        return ResponseEntity.ok(Map.of("message", "Account deleted successfully"));
+        return ResponseEntity.ok().headers(createClearCookieHeader()).body(Map.of("message", "Account deleted successfully"));
     }
 }

@@ -40,3 +40,11 @@ export function apiUrl(path: string): string {
 
   return `${apiBaseUrl}${normalizedPath}`;
 }
+
+export async function fetchApi(pathOrUrl: string, options?: RequestInit): Promise<Response> {
+  const url = pathOrUrl.startsWith("http") ? pathOrUrl : apiUrl(pathOrUrl);
+  return fetch(url, {
+    ...options,
+    credentials: "include",
+  });
+}

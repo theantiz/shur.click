@@ -116,7 +116,6 @@ export default function Signup() {
       }
 
       const data = await response.json();
-      localStorage.setItem("token", data.token);
       localStorage.setItem("userEmail", data.email || formData.email);
       localStorage.setItem("userName", data.fullName || formData.name);
       await claimGuestLinks(data.token);
@@ -167,7 +166,6 @@ export default function Signup() {
         }
 
         const data = await res.json();
-        localStorage.setItem("token", data.token);
         localStorage.setItem("userEmail", data.email);
         localStorage.setItem("userName", data.fullName || "");
         await claimGuestLinks(data.token);

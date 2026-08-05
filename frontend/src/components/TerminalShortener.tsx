@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 import { ErrorAlert } from "./ErrorAlert";
-import { apiUrl } from "../lib/api";
+import { apiUrl, fetchApi } from "../lib/api";
 import { getApiErrorMessage } from "../lib/apiError";
 import {
   GUEST_LIMIT,
@@ -189,23 +189,25 @@ export default function TerminalShortener() {
     }
 
     // Check if guest limit already reached on mount
-    const isLoggedIn = Boolean(localStorage.getItem("token"));
+    const isLoggedIn = Boolean(localStorage.getItem("userEmail"));
     if (!isLoggedIn && getGuestCount() >= GUEST_LIMIT) {
       setGuestLimitReached(true);
     }
   }, []);
 
   const saveToHistory = (item: HistoryItem) => {
-    const nextHistory = [
-      item,
-      ...history.filter((h) => h.shortCode !== item.shortCode),
-    ].slice(0, 10);
-    setHistory(nextHistory);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
-    } catch {
-      // ignore storage failures
-    }
+    setHistory((prevHistory) => {
+      const nextHistory = [
+        item,
+        ...prevHistory.filter((h) => h.shortCode !== item.shortCode),
+      ].slice(0, 10);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
+      } catch {
+        // ignore storage failures
+      }
+      return nextHistory;
+    });
   };
 
   const handleShorten = async (e: React.FormEvent) => {
@@ -214,8 +216,8 @@ export default function TerminalShortener() {
     if (!value) return;
 
     // If guest typed a custom alias, show the dialog instead of submitting
-    const token = localStorage.getItem("token");
-    if (!token && customCode.trim()) {
+    const hasSession = localStorage.getItem("userEmail");
+    if (!hasSession && customCode.trim()) {
       setPendingUrl(value);
       setShowAliasDialog(true);
       return;
@@ -244,14 +246,13 @@ export default function TerminalShortener() {
       };
       if (alias) payload.customAlias = alias;
 
-      const token = localStorage.getItem("token");
+      const hasSession = localStorage.getItem("userEmail");
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      if (!token) headers["X-Guest-Token"] = getOrCreateGuestToken();
+      if (!hasSession) headers["X-Guest-Token"] = getOrCreateGuestToken();
 
-      const res = await fetch(apiUrl("/api/urls"), {
+      const res = await fetchApi("/api/urls", {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -286,7 +287,7 @@ export default function TerminalShortener() {
       });
 
       // Track guest usage and show gate after limit
-      if (!token) {
+      if (!hasSession) {
         const newCount = incrementGuestCount();
         if (newCount >= GUEST_LIMIT) {
           setGuestLimitReached(true);
