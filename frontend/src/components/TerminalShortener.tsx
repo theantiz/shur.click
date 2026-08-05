@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 import { ErrorAlert } from "./ErrorAlert";
-import { apiUrl, fetchApi } from "../lib/api";
+import { fetchApi } from "../lib/api";
 import { getApiErrorMessage } from "../lib/apiError";
 import {
   GUEST_LIMIT,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TrackPage from '../components/TrackPage';
 
@@ -16,7 +16,7 @@ describe('TrackPage Polling and Cleanup', () => {
     localStorage.setItem('userEmail', 'test@test.com');
     originalFetch = window.fetch;
     mockFetch = vi.fn();
-    window.fetch = mockFetch;
+    window.fetch = mockFetch as any;
   });
 
   afterEach(() => {

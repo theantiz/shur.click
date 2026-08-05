@@ -51,7 +51,6 @@ describe('TerminalShortener History State', () => {
 
     const input = screen.getByPlaceholderText('Paste your long URL');
     const button = screen.getByRole('button', { name: /shorten/i });
-    const form = button.closest('form')!;
 
     // Fire first submit
     fireEvent.change(input, { target: { value: 'https://example1.com' } });
